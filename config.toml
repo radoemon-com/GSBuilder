@@ -18,7 +18,7 @@ maximum_memory = "2G"
 api_registry = "data/minecraft/apis.json"
 
 [steam]
-steamcmd_executable = "path/to/steamcmd"
+steamcmd_executable = "/path/to/steamcmd"
 validate_install = true
 # Empty uses the OS user running GSBuilder; set an account name to use another OS user.
 run_as_user = ""
@@ -27,8 +27,7 @@ login_mode = "anonymous"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.0.0"
+user_agent = "GSBuilder/1.0.1"
 
 [updates]
-# Set to "OWNER/REPOSITORY" to enable update checks from GitHub Releases.
-github_repository = ""
+github_repository = "radoemon-com/GSBuilder"

@@ -18,9 +18,9 @@ else
     printf 'Installed gsbuilder command: %s\n' "$command_path"
 fi
 
-case "${SHELL##*/}" in
-    bash) shell_config="$HOME/.bashrc" ;;
-    zsh) shell_config="$HOME/.zshrc" ;;
+case "${SHELL-}" in
+    */bash|bash) shell_config="$HOME/.bashrc" ;;
+    */zsh|zsh) shell_config="$HOME/.zshrc" ;;
     *) shell_config="$HOME/.profile" ;;
 esac
 

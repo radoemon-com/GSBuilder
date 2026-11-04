@@ -4,7 +4,6 @@ use crate::core::config::Config;
 use crate::core::error::{AppResult, input_error};
 use crate::core::language::Language;
 use crate::core::paths::{is_valid_component, prepare_target};
-use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 use std::process::Command;
@@ -101,31 +100,14 @@ fn prepare_install_target(target: &Path, run_as_user: &str) -> AppResult<()> {
         return prepare_target(target);
     }
 
-    if target.exists() {
-        prepare_target(target)?;
-        let status = Command::new("sudo")
-            .args(["chown", run_as_user])
-            .arg(target)
-            .status()?;
-        if !status.success() {
-            return Err(input_error(format!(
-                "Could not assign Steam install directory to {run_as_user}: {status}"
-            )));
-        }
-        return Ok(());
-    }
-
-    let parent = target
-        .parent()
-        .ok_or_else(|| input_error("Steam install directory has no parent"))?;
-    fs::create_dir_all(parent)?;
+    prepare_target(target)?;
     let status = Command::new("sudo")
-        .args(["-u", run_as_user, "--", "mkdir"])
+        .args(["chown", "--", run_as_user])
         .arg(target)
         .status()?;
     if !status.success() {
         return Err(input_error(format!(
-            "Could not create Steam install directory as {run_as_user}: {status}"
+            "Could not assign Steam install directory to {run_as_user}: {status}"
         )));
     }
     Ok(())

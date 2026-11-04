@@ -153,7 +153,7 @@ timeout_seconds = 120
 user_agent = "GSBuilder/1.0"
 
 [updates]
-github_repository = ""  # 更新確認を有効にする場合は "OWNER/REPOSITORY"
+github_repository = "radoemon-com/GSBuilder"
 ```
 
 ---
@@ -345,7 +345,7 @@ timeout_seconds = 120
 user_agent = "GSBuilder/1.0"
 
 [updates]
-github_repository = ""              # Set to "OWNER/REPOSITORY" to enable update checks
+github_repository = "radoemon-com/GSBuilder"
 ```
 
 ---
