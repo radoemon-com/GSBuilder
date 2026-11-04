@@ -1,4 +1,5 @@
 mod mods;
+mod workshop;
 
 use crate::core::config::Config;
 use crate::core::error::{AppResult, input_error};
@@ -80,6 +81,26 @@ impl<'a> SteamService<'a> {
         mods::list(self.language, &server_path, destination)
     }
 
+    pub fn install_workshop_item(
+        &self,
+        game: &str,
+        server: &str,
+        workshop_id: &str,
+    ) -> AppResult<()> {
+        let server_path = self.server_path(game, server)?;
+        workshop::install_item(self.config, self.language, &server_path, workshop_id)
+    }
+
+    pub fn configure_workshop_collection(
+        &self,
+        game: &str,
+        server: &str,
+        collection_id: &str,
+    ) -> AppResult<()> {
+        let server_path = self.server_path(game, server)?;
+        workshop::configure_collection(&server_path, collection_id)
+    }
+
     fn server_path(&self, game: &str, server: &str) -> AppResult<std::path::PathBuf> {
         if !is_valid_component(game) || !is_valid_component(server) {
             return Err(input_error(self.language.text("paths.component.invalid")?));
@@ -113,7 +134,7 @@ fn prepare_install_target(target: &Path, run_as_user: &str) -> AppResult<()> {
     Ok(())
 }
 
-fn prompt_for_steam_username(language: &Language) -> AppResult<String> {
+pub(super) fn prompt_for_steam_username(language: &Language) -> AppResult<String> {
     print!("{}", language.text("steam.username.prompt")?);
     io::stdout().flush()?;
     let mut username = String::new();
@@ -127,7 +148,7 @@ fn prompt_for_steam_username(language: &Language) -> AppResult<String> {
     Ok(username.to_owned())
 }
 
-fn run_steamcmd(
+pub(super) fn run_steamcmd(
     executable: &Path,
     args: &[String],
     run_as_user: &str,

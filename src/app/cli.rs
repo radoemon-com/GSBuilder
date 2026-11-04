@@ -106,6 +106,9 @@ fn help_key(args: &[String], verbose: bool) -> Option<&'static str> {
         ["steam", "mod"] => ("cli.help.short.steam.mod", "cli.help.steam.mod"),
         ["steam", "mod", "add"] => ("cli.help.short.steam.mod.add", "cli.help.steam.mod.add"),
         ["steam", "mod", "list"] => ("cli.help.short.steam.mod.list", "cli.help.steam.mod.list"),
+        ["steam", "workshop"] | ["steam", "workshop", "item" | "collection"] => {
+            ("cli.help.short.steam.workshop", "cli.help.steam.workshop")
+        }
         _ => return None,
     };
     Some(if verbose { detailed } else { short })
@@ -158,6 +161,17 @@ fn dispatch_steam(config: &Config, language: &Language, args: &[String]) -> AppR
                 service.list_mods(&args[2], &args[3], args.get(4).map(String::as_str))
             }
             _ => Err(input_error("Usage: steam mod add|list <game> <server> ...")),
+        },
+        Some("workshop") => match args.get(1).map(String::as_str) {
+            Some("item") if args.len() == 5 => {
+                service.install_workshop_item(&args[2], &args[3], &args[4])
+            }
+            Some("collection") if args.len() == 5 => {
+                service.configure_workshop_collection(&args[2], &args[3], &args[4])
+            }
+            _ => Err(input_error(
+                "Usage: steam workshop item|collection <game> <server_name> <workshop_id>",
+            )),
         },
         _ => Err(input_error("Use 'help steam' for Steam commands")),
     }
@@ -259,6 +273,13 @@ mod tests {
                 true
             ),
             Some("cli.help.mc.api.add")
+        );
+        assert_eq!(
+            help_key(
+                &["steam".to_owned(), "workshop".to_owned(), "item".to_owned()],
+                true
+            ),
+            Some("cli.help.steam.workshop")
         );
         assert_eq!(help_key(&["unknown".to_owned()], false), None);
     }

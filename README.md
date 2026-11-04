@@ -95,7 +95,15 @@ GSBuilder> steam mod add CoreKeeper "My Server" "./my-mods" mods
 
 # 導入済みModの一覧表示
 GSBuilder> steam mod list CoreKeeper "My Server"
+
+# Left 4 Dead 2 のWorkshop Add-onを追加 (WorkshopのアイテムID)
+GSBuilder> steam workshop item L4D2 "My Server" 1234567890
+
+# Left 4 Dead 2 のWorkshopコレクションをサーバー起動時に読み込む
+GSBuilder> steam workshop collection L4D2 "My Server" 1234567890
 ```
+
+Workshop コマンドは現在 Left 4 Dead 2 専用です。`item` はSteamCMDで取得したVPKを `left4dead2/addons/workshop/` に配置し、`collection` は `left4dead2/cfg/autoexec.cfg` にコレクションIDを設定します。コレクション内のアイテムはサーバー起動時にゲーム側で取得されます。Steamアカウントが必要なアイテムでは `[steam].login_mode = "account"` を設定してください。
 
 ---
 
@@ -117,7 +125,7 @@ GSBuilder> steam mod list CoreKeeper "My Server"
 ### 💨 Steam の挙動
 - Steam サーバーは SteamCMD の dedicated-server App ID を入力して構築します。
 - `[steam].login_mode` が `account` の場合、インストール時に Steam ユーザー名を求められます。パスワードや Steam Guard コードは SteamCMD の対話プロンプトに入力し、GSBuilder の設定やコマンド引数には保存されません。
-- Fabric Mod は `mc mod add` で `mods/` へコピーできます。Steam Mod はゲームごとに配置先や導入手順が異なるため、必要に応じてサーバー配下の相対 `destination` を指定してコピーしてください。Mod の自動ダウンロードには対応していません。
+- Fabric Mod は `mc mod add` で `mods/` へコピーできます。Steam Mod は `steam mod add` でローカルファイルをコピーできます。Left 4 Dead 2 は `steam workshop item` でWorkshop Add-onを取得し、`steam workshop collection` で起動時に読み込むコレクションを設定できます。ほかのSteamゲームのWorkshop連携には対応していません。
 
 ---
 
@@ -150,7 +158,7 @@ login_mode = "anonymous"  # "anonymous" または "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.0"
+user_agent = "GSBuilder/1.0.0"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
@@ -287,7 +295,15 @@ GSBuilder> steam mod add CoreKeeper "My Server" "./my-mods" mods
 
 # List installed Mods
 GSBuilder> steam mod list CoreKeeper "My Server"
+
+# Install a Left 4 Dead 2 Workshop add-on (Workshop item ID)
+GSBuilder> steam workshop item L4D2 "My Server" 1234567890
+
+# Load a Left 4 Dead 2 Workshop collection when the server starts
+GSBuilder> steam workshop collection L4D2 "My Server" 1234567890
 ```
+
+Workshop commands currently support Left 4 Dead 2 only. `item` downloads the VPK with SteamCMD and places it in `left4dead2/addons/workshop/`. `collection` writes the collection ID to `left4dead2/cfg/autoexec.cfg`; the game server downloads collection items when it starts. Set `[steam].login_mode = "account"` for items that require a Steam account.
 
 ---
 
@@ -309,7 +325,7 @@ Locations are configured in the `[paths]` section of `config.toml`. The default 
 ### 💨 Steam Behavior
 - Enter the Steam dedicated-server App ID to install a Steam server using SteamCMD.
 - If `[steam].login_mode` is `account`, GSBuilder asks for your Steam username during installation. Enter your password and Steam Guard code in SteamCMD's interactive prompt; they are not saved in GSBuilder settings or command arguments.
-- Use `mc mod add` to copy Fabric Mods into `mods/`. Steam Mod locations and setup steps vary by game, so use the optional relative `destination` path under the server folder as needed. Automatic Mod downloads are not supported.
+- Use `mc mod add` to copy Fabric Mods into `mods/`. `steam mod add` copies local Steam mod files. For Left 4 Dead 2, `steam workshop item` downloads Workshop add-ons and `steam workshop collection` configures a collection to load at startup. Other Steam games' Workshop integrations are not supported.
 
 ---
 
@@ -342,7 +358,7 @@ login_mode = "anonymous"            # "anonymous" or "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.0"
+user_agent = "GSBuilder/1.0.0"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
