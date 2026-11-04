@@ -7,6 +7,7 @@ use std::cmp::Ordering;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::time::Duration;
 
 const RELEASE_ASSET: &str = "GSBuilder-linux-x86_64.tar.gz";
@@ -39,7 +40,17 @@ pub fn check_and_update(config: &Config, language: &Language) -> AppResult<bool>
 
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     {
-        let release = match latest_release(config) {
+        let source_root = match source_project_root() {
+            Ok(root) => root,
+            Err(error) => {
+                eprintln!(
+                    "{}",
+                    language.format("update.check_failed", &[("error", &error.to_string())])?
+                );
+                return Ok(false);
+            }
+        };
+        let release = match latest_release(config, source_root.is_none()) {
             Ok(release) => release,
             Err(error) => {
                 eprintln!(
@@ -71,7 +82,12 @@ pub fn check_and_update(config: &Config, language: &Language) -> AppResult<bool>
             return Ok(false);
         }
 
-        match apply_update(&release) {
+        let result = if let Some(project_root) = source_root {
+            apply_source_update(&release, &project_root)
+        } else {
+            apply_update(&release)
+        };
+        match result {
             Ok(()) => {
                 println!("{}", language.text("update.restart")?);
                 Ok(true)
@@ -87,7 +103,7 @@ pub fn check_and_update(config: &Config, language: &Language) -> AppResult<bool>
     }
 }
 
-fn latest_release(config: &Config) -> AppResult<Option<Release>> {
+fn latest_release(config: &Config, require_binary_asset: bool) -> AppResult<Option<Release>> {
     let client = Client::builder()
         .user_agent(&config.network.user_agent)
         .timeout(Duration::from_secs(15))
@@ -105,15 +121,40 @@ fn latest_release(config: &Config) -> AppResult<Option<Release>> {
     if compare_versions(&release.tag_name, current_version)? != Ordering::Greater {
         return Ok(None);
     }
-    if !release.assets.iter().any(|asset| {
-        asset.name == RELEASE_ASSET && is_github_release_url(&asset.browser_download_url)
-    }) {
+    if require_binary_asset
+        && !release.assets.iter().any(|asset| {
+            asset.name == RELEASE_ASSET && is_github_release_url(&asset.browser_download_url)
+        })
+    {
         return Err(input_error(format!(
             "GitHub release {} is missing a valid {RELEASE_ASSET} asset",
             release.tag_name
         )));
     }
     Ok(Some(release))
+}
+
+fn source_project_root() -> AppResult<Option<PathBuf>> {
+    if let Some(project_root) = std::env::var_os("GSBUILDER_PROJECT_DIR") {
+        let project_root = PathBuf::from(project_root);
+        if !is_source_project(&project_root) {
+            return Err(input_error(format!(
+                "GSBUILDER_PROJECT_DIR is not a Git source checkout: {}",
+                project_root.display()
+            )));
+        }
+        return Ok(Some(project_root));
+    }
+
+    let executable = std::env::current_exe()?;
+    Ok(executable
+        .ancestors()
+        .find(|path| is_source_project(path))
+        .map(Path::to_path_buf))
+}
+
+fn is_source_project(path: &Path) -> bool {
+    path.join("Cargo.toml").is_file() && path.join(".git").exists()
 }
 
 fn apply_update(release: &Release) -> AppResult<()> {
@@ -155,8 +196,110 @@ fn apply_update(release: &Release) -> AppResult<()> {
         let _ = fs::remove_file(&replacement);
         return Err(error);
     }
-    if let Err(error) = fs::rename(&replacement, &executable) {
+    install_replacement(&replacement, &executable)
+}
+
+fn apply_source_update(release: &Release, project_root: &Path) -> AppResult<()> {
+    ensure_clean_worktree(project_root)?;
+    let tag_ref = format!("refs/tags/{}", release.tag_name);
+    run_git(project_root, &["fetch", "--no-tags", "origin", &tag_ref])?;
+    run_git(project_root, &["merge", "--ff-only", "FETCH_HEAD"])?;
+
+    println!("Building updated source checkout...");
+    let status = Command::new("cargo")
+        .arg("build")
+        .arg("--release")
+        .arg("--locked")
+        .arg("--manifest-path")
+        .arg(project_root.join("Cargo.toml"))
+        .arg("--target-dir")
+        .arg(project_root.join("target"))
+        .status()?;
+    if !status.success() {
+        return Err(input_error(format!(
+            "Could not build the updated source checkout: {status}"
+        )));
+    }
+
+    let built_executable = project_root.join("target/release/GSBuilder");
+    let metadata = fs::metadata(&built_executable)?;
+    if !metadata.is_file() || metadata.len() == 0 || metadata.len() > MAX_BINARY_SIZE {
+        return Err(input_error(format!(
+            "Built executable has an invalid file size: {}",
+            built_executable.display()
+        )));
+    }
+
+    let executable = std::env::current_exe()?;
+    let replacement = replacement_path(&executable);
+    let write_result = (|| -> AppResult<()> {
+        let mut output = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&replacement)?;
+        let mut input = fs::File::open(&built_executable)?;
+        let copied = io::copy(&mut input, &mut output)?;
+        if copied != metadata.len() {
+            return Err(input_error(
+                "Built executable size changed while preparing the update",
+            ));
+        }
+        output.sync_all()?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            output.set_permissions(fs::Permissions::from_mode(0o755))?;
+        }
+        Ok(())
+    })();
+    if let Err(error) = write_result {
         let _ = fs::remove_file(&replacement);
+        return Err(error);
+    }
+    install_replacement(&replacement, &executable)
+}
+
+fn ensure_clean_worktree(project_root: &Path) -> AppResult<()> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(project_root)
+        .args(["status", "--porcelain", "--untracked-files=normal"])
+        .output()?;
+    if !output.status.success() {
+        return Err(input_error(format!(
+            "Could not inspect Git worktree at {}: {}",
+            project_root.display(),
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    if !output.stdout.is_empty() {
+        return Err(input_error(format!(
+            "Source update stopped because the Git worktree has local changes. Commit or stash them first: {}",
+            project_root.display()
+        )));
+    }
+    Ok(())
+}
+
+fn run_git(project_root: &Path, args: &[&str]) -> AppResult<()> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(project_root)
+        .args(args)
+        .output()?;
+    if !output.status.success() {
+        return Err(input_error(format!(
+            "Git command failed ({}): {}",
+            args.join(" "),
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    Ok(())
+}
+
+fn install_replacement(replacement: &Path, executable: &Path) -> AppResult<()> {
+    if let Err(error) = fs::rename(replacement, executable) {
+        let _ = fs::remove_file(replacement);
         if error.kind() == io::ErrorKind::PermissionDenied {
             return Err(input_error(format!(
                 "Cannot replace {}. Install GSBuilder in a writable directory or use sudo",
@@ -299,8 +442,8 @@ fn parse_version(value: &str) -> AppResult<Version> {
 #[cfg(test)]
 mod tests {
     use super::{
-        check_and_update, compare_versions, is_github_release_url, replacement_path,
-        write_binary_from_archive,
+        check_and_update, compare_versions, ensure_clean_worktree, is_github_release_url,
+        replacement_path, write_binary_from_archive,
     };
     use crate::core::config::Config;
     use crate::core::language::Language;
@@ -310,6 +453,17 @@ mod tests {
     use std::fs;
     use std::io::Cursor;
     use std::path::{Path, PathBuf};
+    use std::process::Command;
+    use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
+
+    fn temp_dir() -> PathBuf {
+        static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+        std::env::temp_dir().join(format!(
+            "gsbuilder-update-{}-{}",
+            std::process::id(),
+            NEXT_ID.fetch_add(1, AtomicOrdering::Relaxed)
+        ))
+    }
 
     #[test]
     fn compares_release_versions_and_prereleases() {
@@ -354,6 +508,57 @@ mod tests {
                 std::process::id()
             ))
         );
+    }
+
+    #[test]
+    fn source_updates_require_a_clean_git_worktree() {
+        let directory = temp_dir();
+        fs::create_dir_all(&directory).unwrap();
+        assert!(
+            Command::new("git")
+                .arg("-C")
+                .arg(&directory)
+                .args(["init", "-q"])
+                .status()
+                .unwrap()
+                .success()
+        );
+        fs::write(directory.join("tracked.txt"), "initial").unwrap();
+        assert!(
+            Command::new("git")
+                .arg("-C")
+                .arg(&directory)
+                .args(["add", "tracked.txt"])
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert!(
+            Command::new("git")
+                .arg("-C")
+                .arg(&directory)
+                .args([
+                    "-c",
+                    "user.name=GSBuilder Tests",
+                    "-c",
+                    "user.email=tests@example.invalid",
+                    "commit",
+                    "-q",
+                    "-m",
+                    "initial",
+                ])
+                .status()
+                .unwrap()
+                .success()
+        );
+
+        assert!(ensure_clean_worktree(&directory).is_ok());
+        fs::write(directory.join("tracked.txt"), "changed").unwrap();
+        assert!(ensure_clean_worktree(&directory).is_err());
+        fs::write(directory.join("tracked.txt"), "initial").unwrap();
+        fs::write(directory.join("untracked.txt"), "untracked").unwrap();
+        assert!(ensure_clean_worktree(&directory).is_err());
+        fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]

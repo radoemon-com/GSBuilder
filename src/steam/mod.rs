@@ -101,6 +101,26 @@ impl<'a> SteamService<'a> {
         workshop::install_collection(self.config, self.language, &server_path, collection_id)
     }
 
+    pub fn remove_workshop_item(
+        &self,
+        game: &str,
+        server: &str,
+        workshop_id: &str,
+    ) -> AppResult<()> {
+        let server_path = self.server_path(game, server)?;
+        workshop::remove_item(self.language, &server_path, workshop_id)
+    }
+
+    pub fn remove_workshop_collection(
+        &self,
+        game: &str,
+        server: &str,
+        collection_id: &str,
+    ) -> AppResult<()> {
+        let server_path = self.server_path(game, server)?;
+        workshop::remove_collection(self.config, self.language, &server_path, collection_id)
+    }
+
     fn server_path(&self, game: &str, server: &str) -> AppResult<std::path::PathBuf> {
         if !is_valid_component(game) || !is_valid_component(server) {
             return Err(input_error(self.language.text("paths.component.invalid")?));

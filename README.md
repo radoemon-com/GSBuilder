@@ -6,10 +6,11 @@
 
 ## 🚀 インストール方法・起動方法
 
-現時点ではバイナリ配布前のため、Git と Rust/Cargo を使ってソースからインストールします。ターミナルで次を実行してください。
+GitHub Releases から Linux x86_64 向けアーカイブをダウンロードし、Rust/Cargo なしでインストールできます。最新版の `GSBuilder-linux-x86_64.tar.gz` をダウンロードしてから、次を実行してください。
 
 ```bash
-git clone https://github.com/radoemon-com/GSBuilder.git
+mkdir GSBuilder
+tar -xzf GSBuilder-linux-x86_64.tar.gz -C GSBuilder
 cd GSBuilder
 ./install.sh
 ```
@@ -26,9 +27,9 @@ cd GSBuilder
 gsbuilder
 ```
 
-`./install.sh` は `~/.local/bin/gsbuilder` から取得したフォルダー内の起動スクリプトへリンクし、シェル設定に `~/.local/bin` を追加します。GitHub Releases からのバイナリ配布は準備中です。公開後はRust/Cargoなしでインストールできる手順に切り替える予定です。
+`./install.sh` は `~/.local/bin/gsbuilder` から展開したフォルダー内の起動スクリプトへリンクし、シェル設定に `~/.local/bin` を追加します。ソースからインストールする場合は、Git と Rust/Cargo を用意してリポジトリをcloneし、同じく `./install.sh` を実行してください。
 
-バイナリ配布アーカイブには `src/` は含めません。コンパイル済みの `GSBuilder` 実行ファイルにプログラムが含まれるため、利用時にソースやRust/Cargoは不要です。アーカイブには `GSBuilder`、`start.sh`、`install.sh`、`config.toml`、`lang/`、`data/` を含めます。
+バイナリ配布アーカイブは Linux x86_64 向けです。`src/` は含まれず、コンパイル済み実行ファイルにプログラムが含まれるため、利用時にソースやRust/Cargoは不要です。アーカイブには `GSBuilder`、`start.sh`、`install.sh`、`config.toml`、`lang/`、`data/`、README を含めます。
 
 ---
 
@@ -78,9 +79,9 @@ GSBuilder> exit
 ```
 
 ### 🔄 アップデート
-`config.toml` の `[updates].github_repository` に `OWNER/REPOSITORY` を設定すると、起動時に GitHub Releases を確認します。新しいバージョンがあれば確認を表示し、承諾すると実行中のバイナリだけを更新して終了します。設定・APIデータ・サーバーファイルは変更しません。自動アップデートは Linux x86_64 のみ対応し、設定が空欄なら確認もしません。
+`config.toml` の `[updates].github_repository` に `OWNER/REPOSITORY` を設定すると、起動時に GitHub Releases を確認します。新しいバージョンがあれば確認を表示します。Gitチェックアウトの `start.sh` 経由で起動している場合、承諾するとローカル変更がないことを確認してリリースタグまでソースをFast-forwardし、`cargo build --release --locked` で再ビルドして実行ファイルを更新します。未コミット変更がある場合は上書きを避けて更新を中止します。Gitチェックアウト外のバイナリでは従来どおりReleaseアーカイブから実行ファイルだけを更新します。設定・APIデータ・サーバーファイルは変更しません。自動アップデートは Linux x86_64 のみ対応し、設定が空欄なら確認もしません。
 
-リリースには `GSBuilder-linux-x86_64.tar.gz` というアセット名で、実行ファイル `GSBuilder` をアーカイブのルートに含めてください。リリースアーカイブに `config.toml`、`lang/`、`data/` を同梱しても、アップデーターは実行ファイルだけを置き換えます。実行ファイルの配置先に書き込み権限が必要です。
+Gitチェックアウト外のバイナリ配布には、`GSBuilder-linux-x86_64.tar.gz` というアセット名で実行ファイル `GSBuilder` をアーカイブのルートに含めてください。Gitチェックアウトでのソース更新には、リリースタグがGitHub上に存在し、そのタグで `cargo build --release --locked` が成功することが必要です。どちらの方式でも実行ファイルの配置先に書き込み権限が必要です。
 
 ### 💨 Steam サーバー管理
 ```text
@@ -96,14 +97,21 @@ GSBuilder> steam mod add CoreKeeper "My Server" "./my-mods" mods
 # 導入済みModの一覧表示
 GSBuilder> steam mod list CoreKeeper "My Server"
 
-# Left 4 Dead 2 のWorkshop Add-onを追加 (WorkshopのアイテムID)
+# Left 4 Dead 2 のWorkshop Add-onを追加 (複数のID/URLを混在可能)
 GSBuilder> steam workshop item L4D2 "My Server" 1234567890
+GSBuilder> steam workshop item L4D2 "My Server" "1234567890,https://steamcommunity.com/sharedfiles/filedetails/?id=2345678901"
 
 # Left 4 Dead 2 のWorkshopコレクションをサーバー起動時に読み込む
-GSBuilder> steam workshop collection L4D2 "My Server" 1234567890
+GSBuilder> steam workshop collection L4D2 "My Server" "1234567890,https://steamcommunity.com/sharedfiles/filedetails/?id=2345678901"
+
+# Remove an installed item or unregister a collection
+GSBuilder> steam workshop remove item L4D2 "My Server" 1234567890
+GSBuilder> steam workshop remove collection L4D2 "My Server" 1234567890
 ```
 
-Workshop コマンドは現在 Left 4 Dead 2 専用です。`item` はSteamCMDで取得したVPKを `left4dead2/addons/workshop/` に配置します。`collection` はSteamの公開APIでコレクションのアイテム一覧を取得し、各アイテムをSteamCMDでダウンロードしてVPKを配置した後、`+host_workshop_collection` を指定する `start-workshop.sh` をサーバー直下に生成します。起動時にマップなどの通常の `srcds_run` 引数をこのスクリプトへ渡してください（例: `./start-workshop.sh -console +map c1m1_hotel`）。Steamアカウントが必要なアイテムでは `[steam].login_mode = "account"` を設定してください。
+SteamCMD が `*_legacy.bin` として保存するファイルも、VPK シグネチャを確認して `.vpk` として導入します。
+
+Workshop コマンドは現在 Left 4 Dead 2 専用で、数字のIDまたはSteam Communityの `sharedfiles/filedetails/?id=...` URLをカンマ区切りで複数指定できます。`item` はアイテムとコレクションを混在して入力でき、コレクションは入れ子を含めて展開後、SteamCMD 1回の起動でまとめて取得し、`left4dead2/addons/workshop/` にアイテムID名のVPKとして配置します。同じIDで再実行すると該当VPKを更新します。既存ファイルの上書きと更新時に不要になる旧ファイルの削除はアイテムごとに確認します。`collection` はコレクションと入れ子コレクションを展開し、サーバーごとの `addons.lst` に登録された全コレクションを同期します。更新情報を比較して、新規・更新済みのアイテムだけを取得します。`steam workshop remove item` は指定アイテムのローカルVPKと同期情報を削除します。削除したアイテムが登録済みコレクションに含まれる場合、次回のコレクション同期で再導入されます。`steam workshop remove collection` はコレクション登録を解除し、他の登録コレクションで使われていない管理対象VPKも削除します。削除前には確認を表示します。Steam APIでコレクションを取得できない場合は公開Workshopページも確認します。サーバー起動用の `start-workshop.sh` は最後に指定したコレクションIDを `+host_workshop_collection` に設定します。Steamアカウントが必要なアイテムでは `[steam].login_mode = "account"` を設定してください。
 
 ---
 
@@ -125,7 +133,7 @@ Workshop コマンドは現在 Left 4 Dead 2 専用です。`item` はSteamCMD�
 ### 💨 Steam の挙動
 - Steam サーバーは SteamCMD の dedicated-server App ID を入力して構築します。
 - `[steam].login_mode` が `account` の場合、インストール時に Steam ユーザー名を求められます。パスワードや Steam Guard コードは SteamCMD の対話プロンプトに入力し、GSBuilder の設定やコマンド引数には保存されません。
-- Fabric Mod は `mc mod add` で `mods/` へコピーできます。Steam Mod は `steam mod add` でローカルファイルをコピーできます。Left 4 Dead 2 は `steam workshop item` でWorkshop Add-onを取得し、`steam workshop collection` で起動時に読み込むコレクションを設定できます。ほかのSteamゲームのWorkshop連携には対応していません。
+- Fabric Mod は `mc mod add` で `mods/` へコピーできます。Steam Mod は `steam mod add` でローカルファイルをコピーできます。Left 4 Dead 2 は `steam workshop item` でWorkshop Add-onを取得し、`steam workshop collection` でコレクションの同期と更新を行います。ほかのSteamゲームのWorkshop連携には対応していません。
 
 ---
 
@@ -158,7 +166,7 @@ login_mode = "anonymous"  # "anonymous" または "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.2.0"
+user_agent = "GSBuilder/1.3.0"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
@@ -226,9 +234,18 @@ After installation, launch GSBuilder from any directory:
 gsbuilder
 ```
 
-`./install.sh` links `~/.local/bin/gsbuilder` to the launcher in the cloned folder and adds `~/.local/bin` to your shell configuration. Binary releases from GitHub Releases are being prepared. Once they are available, installation will no longer require Rust/Cargo.
+Download the latest `GSBuilder-linux-x86_64.tar.gz` from GitHub Releases and extract it. Rust/Cargo are not required for binary installation:
 
-The binary release archive does not include `src/`. The compiled `GSBuilder` executable contains the program, so users do not need the source code or Rust/Cargo to run it. The archive includes `GSBuilder`, `start.sh`, `install.sh`, `config.toml`, `lang/`, and `data/`.
+```bash
+mkdir GSBuilder
+tar -xzf GSBuilder-linux-x86_64.tar.gz -C GSBuilder
+cd GSBuilder
+./install.sh
+```
+
+The installer links `~/.local/bin/gsbuilder` to the launcher in the extracted folder and adds `~/.local/bin` to your shell configuration. To build from source instead, clone the repository and run `./install.sh` with Git and Rust/Cargo installed.
+
+The binary release archive supports Linux x86_64 and does not include `src/`. The compiled `GSBuilder` executable contains the program, so users do not need the source code or Rust/Cargo to run it. The archive includes `GSBuilder`, `start.sh`, `install.sh`, `config.toml`, `lang/`, `data/`, and this README.
 
 ---
 
@@ -278,9 +295,9 @@ GSBuilder> exit
 ```
 
 ### 🔄 Updates
-Set `[updates].github_repository` in `config.toml` to `OWNER/REPOSITORY` to check GitHub Releases at startup. If a newer version is available, GSBuilder asks before updating. If you accept, it updates only the executable and exits. Configuration, API data, and server files are not changed. Automatic updates are supported on Linux x86_64 only; leaving this setting empty disables update checks.
+Set `[updates].github_repository` in `config.toml` to `OWNER/REPOSITORY` to check GitHub Releases at startup. If a newer version is available, GSBuilder asks before updating. When launched through `start.sh` from a Git checkout, it verifies that the worktree has no local changes, fast-forwards the source to the release tag, rebuilds with `cargo build --release --locked`, and installs the rebuilt executable. If there are uncommitted changes, the update is stopped rather than overwriting them. Binaries outside a Git checkout continue to update only the executable from the release archive. Configuration, API data, and server files are not changed. Automatic updates are supported on Linux x86_64 only; leaving this setting empty disables update checks.
 
-Publish a release asset named `GSBuilder-linux-x86_64.tar.gz` containing an executable named `GSBuilder` at the archive root. The release archive may also include `config.toml`, `lang/`, and `data/`; the updater replaces only the executable. The directory containing the executable must be writable.
+For binary installations outside a Git checkout, publish a release asset named `GSBuilder-linux-x86_64.tar.gz` containing an executable named `GSBuilder` at the archive root. For source installations, each release tag must build successfully with `cargo build --release --locked`. The directory containing the executable must be writable.
 
 ### 💨 Steam Server Management
 ```text
@@ -296,14 +313,21 @@ GSBuilder> steam mod add CoreKeeper "My Server" "./my-mods" mods
 # List installed Mods
 GSBuilder> steam mod list CoreKeeper "My Server"
 
-# Install a Left 4 Dead 2 Workshop add-on (Workshop item ID)
+# Install Left 4 Dead 2 Workshop add-ons (comma-separated IDs/URLs)
 GSBuilder> steam workshop item L4D2 "My Server" 1234567890
+GSBuilder> steam workshop item L4D2 "My Server" "1234567890,https://steamcommunity.com/sharedfiles/filedetails/?id=2345678901"
 
 # Load a Left 4 Dead 2 Workshop collection when the server starts
-GSBuilder> steam workshop collection L4D2 "My Server" 1234567890
+GSBuilder> steam workshop collection L4D2 "My Server" "1234567890,https://steamcommunity.com/sharedfiles/filedetails/?id=2345678901"
+
+# Remove an installed item or unregister a collection
+GSBuilder> steam workshop remove item L4D2 "My Server" 1234567890
+GSBuilder> steam workshop remove collection L4D2 "My Server" 1234567890
 ```
 
-Workshop commands currently support Left 4 Dead 2 only. `item` downloads the VPK with SteamCMD and places it in `left4dead2/addons/workshop/`. `collection` retrieves the collection's item list through Steam's public API, downloads each item with SteamCMD, copies its VPKs, and creates `start-workshop.sh` in the server root to pass `+host_workshop_collection` to `srcds_run`. Pass the usual `srcds_run` arguments, such as a map, to this script (e.g. `./start-workshop.sh -console +map c1m1_hotel`). Set `[steam].login_mode = "account"` for items that require a Steam account.
+Files SteamCMD stores as `*_legacy.bin` are also installed as `.vpk` after checking their VPK signature.
+
+Workshop commands currently support Left 4 Dead 2 only and accept comma-separated numeric IDs or Steam Community URLs. `item` accepts items and collections together, expands nested collections, downloads all resulting items in one SteamCMD run, and installs ID-named VPK files in `left4dead2/addons/workshop/`. It asks before overwriting existing files and before deleting stale files after an update. `collection` expands nested collections and synchronizes all collections registered in the server's `addons.lst`. `steam workshop remove item` deletes local files and sync metadata for an item; if a registered collection still contains it, a later sync reinstalls it. `steam workshop remove collection` unregisters a collection and deletes managed VPKs not used by another registered collection. Both deletion commands ask for confirmation. The generated `start-workshop.sh` passes the most recently specified collection ID through `+host_workshop_collection` to `srcds_run`. Set `[steam].login_mode = "account"` for items requiring a Steam account.
 
 ---
 
@@ -325,7 +349,7 @@ Locations are configured in the `[paths]` section of `config.toml`. The default 
 ### 💨 Steam Behavior
 - Enter the Steam dedicated-server App ID to install a Steam server using SteamCMD.
 - If `[steam].login_mode` is `account`, GSBuilder asks for your Steam username during installation. Enter your password and Steam Guard code in SteamCMD's interactive prompt; they are not saved in GSBuilder settings or command arguments.
-- Use `mc mod add` to copy Fabric Mods into `mods/`. `steam mod add` copies local Steam mod files. For Left 4 Dead 2, `steam workshop item` downloads Workshop add-ons and `steam workshop collection` configures a collection to load at startup. Other Steam games' Workshop integrations are not supported.
+- Use `mc mod add` to copy Fabric Mods into `mods/`. `steam mod add` copies local Steam mod files. For Left 4 Dead 2, `steam workshop item` downloads Workshop add-ons and `steam workshop collection` synchronizes registered collections and their updates. Other Steam games' Workshop integrations are not supported.
 
 ---
 
@@ -358,7 +382,7 @@ login_mode = "anonymous"            # "anonymous" or "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.2.0"
+user_agent = "GSBuilder/1.3.0"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"

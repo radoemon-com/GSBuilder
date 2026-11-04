@@ -106,7 +106,9 @@ fn help_key(args: &[String], verbose: bool) -> Option<&'static str> {
         ["steam", "mod"] => ("cli.help.short.steam.mod", "cli.help.steam.mod"),
         ["steam", "mod", "add"] => ("cli.help.short.steam.mod.add", "cli.help.steam.mod.add"),
         ["steam", "mod", "list"] => ("cli.help.short.steam.mod.list", "cli.help.steam.mod.list"),
-        ["steam", "workshop"] | ["steam", "workshop", "item" | "collection"] => {
+        ["steam", "workshop"]
+        | ["steam", "workshop", "item" | "collection" | "remove"]
+        | ["steam", "workshop", "remove", "item" | "collection"] => {
             ("cli.help.short.steam.workshop", "cli.help.steam.workshop")
         }
         _ => return None,
@@ -163,14 +165,23 @@ fn dispatch_steam(config: &Config, language: &Language, args: &[String]) -> AppR
             _ => Err(input_error("Usage: steam mod add|list <game> <server> ...")),
         },
         Some("workshop") => match args.get(1).map(String::as_str) {
-            Some("item") if args.len() == 5 => {
-                service.install_workshop_item(&args[2], &args[3], &args[4])
+            Some("item") if args.len() >= 5 => {
+                service.install_workshop_item(&args[2], &args[3], &args[4..].join(" "))
             }
-            Some("collection") if args.len() == 5 => {
-                service.install_workshop_collection(&args[2], &args[3], &args[4])
+            Some("collection") if args.len() >= 5 => {
+                service.install_workshop_collection(&args[2], &args[3], &args[4..].join(" "))
             }
+            Some("remove") if args.len() >= 6 => match args[2].as_str() {
+                "item" => service.remove_workshop_item(&args[3], &args[4], &args[5..].join(" ")),
+                "collection" => {
+                    service.remove_workshop_collection(&args[3], &args[4], &args[5..].join(" "))
+                }
+                _ => Err(input_error(
+                    "Usage: steam workshop remove item|collection <game> <server_name> <id_or_url>[,...]",
+                )),
+            },
             _ => Err(input_error(
-                "Usage: steam workshop item|collection <game> <server_name> <workshop_id>",
+                "Usage: steam workshop item|collection <game> <server_name> <id_or_url>[,<id_or_url>...] | remove item|collection <game> <server_name> <id_or_url>[,<id_or_url>...]",
             )),
         },
         _ => Err(input_error("Use 'help steam' for Steam commands")),
@@ -277,6 +288,18 @@ mod tests {
         assert_eq!(
             help_key(
                 &["steam".to_owned(), "workshop".to_owned(), "item".to_owned()],
+                true
+            ),
+            Some("cli.help.steam.workshop")
+        );
+        assert_eq!(
+            help_key(
+                &[
+                    "steam".to_owned(),
+                    "workshop".to_owned(),
+                    "remove".to_owned(),
+                    "item".to_owned()
+                ],
                 true
             ),
             Some("cli.help.steam.workshop")

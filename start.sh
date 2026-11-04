@@ -20,5 +20,6 @@ fi
 if [ -z "${GSBUILDER_CONFIG:-}" ]; then
     export GSBUILDER_CONFIG="$project_dir/config.toml"
 fi
+export GSBUILDER_PROJECT_DIR="$project_dir"
 
 exec "$binary" "$@"
