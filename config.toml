@@ -1,0 +1,34 @@
+[language]
+# "ja" for Japanese, "en" for English.
+code = "ja"
+japanese_file = "lang/ja.json"
+english_file = "lang/en.json"
+
+[paths]
+# Minecraft servers are created under this directory, followed by <server_name>.
+minecraft_servers = "servers/Minecraft"
+# Steam servers are created under this path; {game} is replaced with the game name.
+steam_servers = "servers/{game}"
+
+[minecraft]
+java_executable = "java"
+minimum_memory = "1G"
+maximum_memory = "2G"
+# Minecraft version-manifest APIs are stored here as JSON.
+api_registry = "data/minecraft/apis.json"
+
+[steam]
+steamcmd_executable = "path/to/steamcmd"
+validate_install = true
+# Empty uses the OS user running GSBuilder; set an account name to use another OS user.
+run_as_user = ""
+# "anonymous" or "account". Account mode prompts for the Steam username at install time.
+login_mode = "anonymous"
+
+[network]
+timeout_seconds = 120
+user_agent = "GSBuilder/1.0.0"
+
+[updates]
+# Set to "OWNER/REPOSITORY" to enable update checks from GitHub Releases.
+github_repository = ""
