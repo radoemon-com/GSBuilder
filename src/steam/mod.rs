@@ -91,14 +91,14 @@ impl<'a> SteamService<'a> {
         workshop::install_item(self.config, self.language, &server_path, workshop_id)
     }
 
-    pub fn configure_workshop_collection(
+    pub fn install_workshop_collection(
         &self,
         game: &str,
         server: &str,
         collection_id: &str,
     ) -> AppResult<()> {
         let server_path = self.server_path(game, server)?;
-        workshop::configure_collection(&server_path, collection_id)
+        workshop::install_collection(self.config, self.language, &server_path, collection_id)
     }
 
     fn server_path(&self, game: &str, server: &str) -> AppResult<std::path::PathBuf> {

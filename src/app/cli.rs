@@ -167,7 +167,7 @@ fn dispatch_steam(config: &Config, language: &Language, args: &[String]) -> AppR
                 service.install_workshop_item(&args[2], &args[3], &args[4])
             }
             Some("collection") if args.len() == 5 => {
-                service.configure_workshop_collection(&args[2], &args[3], &args[4])
+                service.install_workshop_collection(&args[2], &args[3], &args[4])
             }
             _ => Err(input_error(
                 "Usage: steam workshop item|collection <game> <server_name> <workshop_id>",

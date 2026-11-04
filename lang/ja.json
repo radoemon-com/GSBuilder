@@ -60,7 +60,7 @@
   "cli.help.steam.mod": "Steam Mod 操作:\n  steam mod add <game> <server_name> <source_path> [destination]\n  steam mod list <game> <server_name> [destination]\n詳しくは help steam mod add または help steam mod list を参照してください。",
   "cli.help.steam.mod.add": "Mod 追加:\n  steam mod add <game> <server_name> <source_path> [destination]\nローカルの Mod ファイルまたはフォルダーをサーバー内の destination にコピーします。",
   "cli.help.steam.mod.list": "Mod 一覧:\n  steam mod list <game> <server_name> [destination]\n指定先にあるファイルを一覧表示します。",
-  "cli.help.steam.workshop": "Left 4 Dead 2 Workshop:\n  steam workshop item <game> <server_name> <workshop_id>\n  steam workshop collection <game> <server_name> <collection_id>\nitem は SteamCMD で Workshop アイテムを取得し、left4dead2/addons/workshop/ に VPK をコピーします。collection は left4dead2/cfg/autoexec.cfg に設定し、サーバー起動時に読み込ませます。Steam アカウントが必要なアイテムでは [steam].login_mode = \"account\" を設定してください。",
+  "cli.help.steam.workshop": "Left 4 Dead 2 Workshop:\n  steam workshop item <game> <server_name> <workshop_id>\n  steam workshop collection <game> <server_name> <collection_id>\nitem は SteamCMD で Workshop アイテムを取得し、left4dead2/addons/workshop/ に VPK をコピーします。collection は Steam の公開 API でアイテム一覧を取得し、各アイテムを SteamCMD でダウンロードして VPK を配置した後、start-workshop.sh を生成して起動時に +host_workshop_collection を指定します。Steam アカウントが必要なアイテムでは [steam].login_mode = \"account\" を設定してください。",
   "ui.choice.invalid": "1 から {max} の番号を入力してください。",
   "minecraft.type.vanilla": "1. Vanilla",
   "minecraft.type.fabric": "2. Fabric",

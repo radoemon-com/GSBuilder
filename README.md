@@ -103,7 +103,7 @@ GSBuilder> steam workshop item L4D2 "My Server" 1234567890
 GSBuilder> steam workshop collection L4D2 "My Server" 1234567890
 ```
 
-Workshop コマンドは現在 Left 4 Dead 2 専用です。`item` はSteamCMDで取得したVPKを `left4dead2/addons/workshop/` に配置し、`collection` は `left4dead2/cfg/autoexec.cfg` にコレクションIDを設定します。コレクション内のアイテムはサーバー起動時にゲーム側で取得されます。Steamアカウントが必要なアイテムでは `[steam].login_mode = "account"` を設定してください。
+Workshop コマンドは現在 Left 4 Dead 2 専用です。`item` はSteamCMDで取得したVPKを `left4dead2/addons/workshop/` に配置します。`collection` はSteamの公開APIでコレクションのアイテム一覧を取得し、各アイテムをSteamCMDでダウンロードしてVPKを配置した後、`+host_workshop_collection` を指定する `start-workshop.sh` をサーバー直下に生成します。起動時にマップなどの通常の `srcds_run` 引数をこのスクリプトへ渡してください（例: `./start-workshop.sh -console +map c1m1_hotel`）。Steamアカウントが必要なアイテムでは `[steam].login_mode = "account"` を設定してください。
 
 ---
 
@@ -158,7 +158,7 @@ login_mode = "anonymous"  # "anonymous" または "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.0.0"
+user_agent = "GSBuilder/1.2.0"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
@@ -303,7 +303,7 @@ GSBuilder> steam workshop item L4D2 "My Server" 1234567890
 GSBuilder> steam workshop collection L4D2 "My Server" 1234567890
 ```
 
-Workshop commands currently support Left 4 Dead 2 only. `item` downloads the VPK with SteamCMD and places it in `left4dead2/addons/workshop/`. `collection` writes the collection ID to `left4dead2/cfg/autoexec.cfg`; the game server downloads collection items when it starts. Set `[steam].login_mode = "account"` for items that require a Steam account.
+Workshop commands currently support Left 4 Dead 2 only. `item` downloads the VPK with SteamCMD and places it in `left4dead2/addons/workshop/`. `collection` retrieves the collection's item list through Steam's public API, downloads each item with SteamCMD, copies its VPKs, and creates `start-workshop.sh` in the server root to pass `+host_workshop_collection` to `srcds_run`. Pass the usual `srcds_run` arguments, such as a map, to this script (e.g. `./start-workshop.sh -console +map c1m1_hotel`). Set `[steam].login_mode = "account"` for items that require a Steam account.
 
 ---
 
@@ -358,7 +358,7 @@ login_mode = "anonymous"            # "anonymous" or "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.0.0"
+user_agent = "GSBuilder/1.2.0"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"

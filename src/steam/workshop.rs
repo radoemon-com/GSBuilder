@@ -1,13 +1,21 @@
 use crate::core::config::Config;
 use crate::core::error::{AppResult, input_error};
+use crate::core::http::http_client;
 use crate::core::language::Language;
+use serde::Deserialize;
+use std::collections::HashSet;
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 const L4D2_WORKSHOP_APP_ID: &str = "550";
-const COLLECTION_BEGIN: &str = "// GSBuilder workshop collection (begin)";
-const COLLECTION_END: &str = "// GSBuilder workshop collection (end)";
+const COLLECTION_BEGIN: &str = "# GSBuilder workshop collection (begin)";
+const COLLECTION_END: &str = "# GSBuilder workshop collection (end)";
+const COLLECTION_DETAILS_URL: &str =
+    "https://api.steampowered.com/ISteamRemoteStorage/GetCollectionDetails/v1/";
+const MAX_COLLECTION_ITEMS: usize = 500;
+const MAX_COLLECTION_RESPONSE_SIZE: u64 = 2 * 1024 * 1024;
 
 pub(super) fn install_item(
     config: &Config,
@@ -17,13 +25,136 @@ pub(super) fn install_item(
 ) -> AppResult<()> {
     validate_workshop_id(workshop_id)?;
     let game_directory = l4d2_directory(server_path)?;
-    let steamcmd = config.executable_path(&config.steam.steamcmd_executable);
     let username = steam_username(config, language)?;
+    let content = download_item(config, server_path, workshop_id, &username)?;
+    let installed = install_vpks(&content, &game_directory.join("addons/workshop"))?;
+    println!("Installed {installed} Workshop VPK file(s) from item {workshop_id}.");
+    Ok(())
+}
+
+pub(super) fn install_collection(
+    config: &Config,
+    language: &Language,
+    server_path: &Path,
+    collection_id: &str,
+) -> AppResult<()> {
+    validate_workshop_id(collection_id)?;
+    let game_directory = l4d2_directory(server_path)?;
+    let items = fetch_collection_items(config, collection_id)?;
+    let username = steam_username(config, language)?;
+    let mut content_directories = Vec::with_capacity(items.len());
+    for (index, item_id) in items.iter().enumerate() {
+        println!(
+            "Downloading Workshop item {} of {}: {item_id}",
+            index + 1,
+            items.len()
+        );
+        content_directories.push(download_item(config, server_path, item_id, &username)?);
+    }
+
+    let installed = install_vpk_sources(
+        &content_directories,
+        &game_directory.join("addons/workshop"),
+    )?;
+    write_collection_launcher(server_path, collection_id)?;
+    println!(
+        "Downloaded collection {collection_id}: {} items, {installed} VPK file(s).",
+        items.len()
+    );
+    Ok(())
+}
+
+fn write_collection_launcher(server_path: &Path, collection_id: &str) -> AppResult<()> {
+    let launcher = server_path.join("start-workshop.sh");
+    let contents = fs::read_to_string(&launcher).or_else(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            Ok(String::new())
+        } else {
+            Err(error)
+        }
+    })?;
+    let updated = update_collection_launcher(&contents, collection_id)?;
+    fs::write(&launcher, updated)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&launcher, fs::Permissions::from_mode(0o755))?;
+    }
+    println!(
+        "Created {}. Pass normal srcds_run arguments to this launcher.",
+        launcher.display()
+    );
+    Ok(())
+}
+
+#[derive(Deserialize)]
+struct CollectionApiResponse {
+    response: CollectionResponse,
+}
+
+#[derive(Deserialize)]
+struct CollectionResponse {
+    collectiondetails: Vec<CollectionDetails>,
+}
+
+#[derive(Deserialize)]
+struct CollectionDetails {
+    result: u32,
+    #[serde(default)]
+    children: Vec<CollectionChild>,
+}
+
+#[derive(Deserialize)]
+struct CollectionChild {
+    publishedfileid: String,
+}
+
+fn fetch_collection_items(config: &Config, collection_id: &str) -> AppResult<Vec<String>> {
+    validate_workshop_id(collection_id)?;
+    let response = http_client(config)?
+        .post(COLLECTION_DETAILS_URL)
+        .form(&[
+            ("collectioncount", "1"),
+            ("publishedfileids[0]", collection_id),
+        ])
+        .send()?
+        .error_for_status()?;
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_COLLECTION_RESPONSE_SIZE)
+    {
+        return Err(input_error(
+            "Steam Workshop collection response exceeds the 2 MiB size limit",
+        ));
+    }
+    let mut body = Vec::new();
+    response
+        .take(MAX_COLLECTION_RESPONSE_SIZE + 1)
+        .read_to_end(&mut body)?;
+    if body.len() as u64 > MAX_COLLECTION_RESPONSE_SIZE {
+        return Err(input_error(
+            "Steam Workshop collection response exceeds the 2 MiB size limit",
+        ));
+    }
+    parse_collection_items(&body).map_err(|error| {
+        input_error(format!(
+            "Could not read Workshop collection {collection_id}: {error}"
+        ))
+    })
+}
+
+fn download_item(
+    config: &Config,
+    server_path: &Path,
+    workshop_id: &str,
+    username: &str,
+) -> AppResult<PathBuf> {
+    let steamcmd = config.executable_path(&config.steam.steamcmd_executable);
     let mut args = vec![
         "+force_install_dir".to_owned(),
         server_path.to_string_lossy().into_owned(),
         "+login".to_owned(),
-        username,
+        username.to_owned(),
         "+workshop_download_item".to_owned(),
         L4D2_WORKSHOP_APP_ID.to_owned(),
         workshop_id.to_owned(),
@@ -40,35 +171,11 @@ pub(super) fn install_item(
     }
 
     let user_home = steam_user_home(&config.steam.run_as_user)?;
-    let content = workshop_content_directory(&steamcmd, &user_home, server_path, workshop_id)
-        .ok_or_else(|| {
-            input_error(format!(
-                "SteamCMD reported success, but Workshop item {workshop_id} was not found in its content directory"
-            ))
-        })?;
-    let installed = install_vpks(&content, &game_directory.join("addons/workshop"))?;
-    println!("Installed {installed} Workshop VPK file(s) from item {workshop_id}.");
-    Ok(())
-}
-
-pub(super) fn configure_collection(server_path: &Path, collection_id: &str) -> AppResult<()> {
-    validate_workshop_id(collection_id)?;
-    let game_directory = l4d2_directory(server_path)?;
-    let autoexec = game_directory.join("cfg/autoexec.cfg");
-    let contents = fs::read_to_string(&autoexec).or_else(|error| {
-        if error.kind() == std::io::ErrorKind::NotFound {
-            Ok(String::new())
-        } else {
-            Err(error)
-        }
-    })?;
-    let updated = update_collection_setting(&contents, collection_id)?;
-    if let Some(parent) = autoexec.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(autoexec, updated)?;
-    println!("Configured Workshop collection {collection_id} for server startup.");
-    Ok(())
+    workshop_content_directory(&steamcmd, &user_home, server_path, workshop_id).ok_or_else(|| {
+        input_error(format!(
+            "SteamCMD reported success, but Workshop item {workshop_id} was not found in its content directory"
+        ))
+    })
 }
 
 fn l4d2_directory(server_path: &Path) -> AppResult<PathBuf> {
@@ -147,18 +254,31 @@ fn workshop_content_directory(
 }
 
 fn install_vpks(source: &Path, destination: &Path) -> AppResult<usize> {
+    install_vpk_sources(&[source.to_path_buf()], destination)
+}
+
+fn install_vpk_sources(sources: &[PathBuf], destination: &Path) -> AppResult<usize> {
     let mut files = Vec::new();
-    collect_vpk_files(source, &mut files)?;
+    for source in sources {
+        collect_vpk_files(source, &mut files)?;
+    }
     if files.is_empty() {
         return Err(input_error(format!(
-            "Workshop item contains no VPK files: {}",
-            source.display()
+            "Workshop download contains no VPK files in {} item(s)",
+            sources.len()
         )));
     }
+    let mut names = HashSet::new();
     for file in &files {
         let name = file
             .file_name()
             .ok_or_else(|| input_error("Workshop VPK file has no name"))?;
+        if !names.insert(name.to_os_string()) {
+            return Err(input_error(format!(
+                "Workshop items contain VPK files with the same name: {}",
+                name.to_string_lossy()
+            )));
+        }
         let target = destination.join(name);
         if target.exists() {
             return Err(input_error(format!(
@@ -178,6 +298,39 @@ fn install_vpks(source: &Path, destination: &Path) -> AppResult<usize> {
         )?;
     }
     Ok(files.len())
+}
+
+fn parse_collection_items(body: &[u8]) -> AppResult<Vec<String>> {
+    let response: CollectionApiResponse = serde_json::from_slice(body)?;
+    if response.response.collectiondetails.len() != 1 {
+        return Err(input_error(
+            "Steam did not return exactly one Workshop collection",
+        ));
+    }
+    let collection = &response.response.collectiondetails[0];
+    if collection.result != 1 {
+        return Err(input_error(format!(
+            "Steam could not load the Workshop collection (result {})",
+            collection.result
+        )));
+    }
+    if collection.children.is_empty() {
+        return Err(input_error("Workshop collection is empty"));
+    }
+    if collection.children.len() > MAX_COLLECTION_ITEMS {
+        return Err(input_error(format!(
+            "Workshop collection has more than the supported {MAX_COLLECTION_ITEMS} items"
+        )));
+    }
+    let mut seen = HashSet::new();
+    let mut items = Vec::with_capacity(collection.children.len());
+    for child in &collection.children {
+        validate_workshop_id(&child.publishedfileid)?;
+        if seen.insert(child.publishedfileid.as_str()) {
+            items.push(child.publishedfileid.clone());
+        }
+    }
+    Ok(items)
 }
 
 fn collect_vpk_files(directory: &Path, output: &mut Vec<PathBuf>) -> AppResult<()> {
@@ -204,11 +357,12 @@ fn collect_vpk_files(directory: &Path, output: &mut Vec<PathBuf>) -> AppResult<(
     Ok(())
 }
 
-fn update_collection_setting(contents: &str, collection_id: &str) -> AppResult<String> {
+fn update_collection_launcher(contents: &str, collection_id: &str) -> AppResult<String> {
     let begin = contents.find(COLLECTION_BEGIN);
     let end = contents.find(COLLECTION_END);
-    let block =
-        format!("{COLLECTION_BEGIN}\nhost_workshop_collection {collection_id}\n{COLLECTION_END}");
+    let block = format!(
+        "{COLLECTION_BEGIN}\nexec \"$launcher\" -game left4dead2 \"$@\" +host_workshop_collection {collection_id}\n{COLLECTION_END}"
+    );
     match (begin, end) {
         (Some(begin), Some(end)) if begin < end => {
             let end = end + COLLECTION_END.len();
@@ -219,31 +373,27 @@ fn update_collection_setting(contents: &str, collection_id: &str) -> AppResult<S
             Ok(updated)
         }
         (None, None) => {
-            if contents
-                .lines()
-                .any(|line| line.trim_start().starts_with("host_workshop_collection"))
-            {
+            if !contents.is_empty() {
                 return Err(input_error(
-                    "autoexec.cfg already sets host_workshop_collection; remove or edit that setting before using GSBuilder",
+                    "start-workshop.sh already exists and is not managed by GSBuilder; move it aside before configuring a Workshop collection",
                 ));
             }
-            let mut updated = contents.to_owned();
-            if !updated.is_empty() && !updated.ends_with('\n') {
-                updated.push('\n');
-            }
-            updated.push_str(&block);
-            updated.push('\n');
-            Ok(updated)
+            Ok(format!(
+                "#!/bin/sh\nset -eu\n\nserver_root=$(CDPATH= cd -- \"$(dirname -- \"$0\")\" && pwd)\nif [ -x \"$server_root/srcds_run\" ]; then\n    launcher=\"$server_root/srcds_run\"\nelif [ -x \"$server_root/srcds_run.sh\" ]; then\n    launcher=\"$server_root/srcds_run.sh\"\nelse\n    printf '%s\\n' \"Could not find srcds_run in $server_root\" >&2\n    exit 1\nfi\n\n{block}\n"
+            ))
         }
         _ => Err(input_error(
-            "autoexec.cfg contains an incomplete GSBuilder workshop collection block",
+            "start-workshop.sh contains an incomplete GSBuilder collection block",
         )),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{install_vpks, update_collection_setting, validate_workshop_id};
+    use super::{
+        COLLECTION_BEGIN, install_vpks, parse_collection_items, update_collection_launcher,
+        validate_workshop_id, write_collection_launcher,
+    };
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -265,20 +415,84 @@ mod tests {
     }
 
     #[test]
-    fn adds_and_updates_managed_collection_setting_without_losing_other_config() {
-        let initial = "hostname test\n";
-        let configured = update_collection_setting(initial, "123").unwrap();
-        assert!(configured.starts_with(initial));
-        assert!(configured.contains("host_workshop_collection 123"));
-        let updated = update_collection_setting(&configured, "456").unwrap();
-        assert!(updated.contains("host_workshop_collection 456"));
-        assert!(!updated.contains("host_workshop_collection 123"));
+    fn parses_collection_items_and_deduplicates_ids() {
+        let body = br#"{"response":{"collectiondetails":[{"result":1,"children":[{"publishedfileid":"123"},{"publishedfileid":"456"},{"publishedfileid":"123"}]}]}}"#;
+        assert_eq!(parse_collection_items(body).unwrap(), ["123", "456"]);
+    }
+
+    #[test]
+    fn rejects_failed_empty_and_invalid_workshop_collections() {
+        assert!(
+            parse_collection_items(
+                br#"{"response":{"collectiondetails":[{"result":2,"children":[]}]}}"#
+            )
+            .is_err()
+        );
+        assert!(
+            parse_collection_items(
+                br#"{"response":{"collectiondetails":[{"result":1,"children":[]}]}}"#
+            )
+            .is_err()
+        );
+        assert!(
+            parse_collection_items(
+                br#"{"response":{"collectiondetails":[{"result":1,"children":[{"publishedfileid":"../x"}]}]}}"#
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn generates_and_updates_a_collection_startup_script() {
+        let configured = update_collection_launcher("", "123").unwrap();
+        assert!(configured.starts_with("#!/bin/sh\n"));
+        assert!(
+            configured.contains(
+                "exec \"$launcher\" -game left4dead2 \"$@\" +host_workshop_collection 123"
+            )
+        );
+        let updated = update_collection_launcher(&configured, "456").unwrap();
+        assert!(updated.contains("+host_workshop_collection 456"));
+        assert!(!updated.contains("+host_workshop_collection 123"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn generated_launcher_passes_collection_and_server_arguments_to_srcds() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = temp_dir();
+        let game_directory = root.join("left4dead2");
+        fs::create_dir_all(&game_directory).unwrap();
+        let srcds = root.join("srcds_run");
+        fs::write(
+            &srcds,
+            "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$GSBUILDER_TEST_ARGS\"\n",
+        )
+        .unwrap();
+        fs::set_permissions(&srcds, fs::Permissions::from_mode(0o755)).unwrap();
+
+        write_collection_launcher(&root, "123456").unwrap();
+        let launcher = root.join("start-workshop.sh");
+        assert!(fs::metadata(&launcher).unwrap().permissions().mode() & 0o111 != 0);
+        let args_file = root.join("args.txt");
+        let status = std::process::Command::new(&launcher)
+            .args(["-console", "+map", "c1m1_hotel"])
+            .env("GSBUILDER_TEST_ARGS", &args_file)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let args = fs::read_to_string(args_file).unwrap();
+        assert!(args.contains("-game\nleft4dead2\n"));
+        assert!(args.contains("-console\n+map\nc1m1_hotel\n"));
+        assert!(args.contains("+host_workshop_collection\n123456\n"));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn rejects_conflicting_or_incomplete_collection_settings() {
-        assert!(update_collection_setting("host_workshop_collection 12\n", "34").is_err());
-        assert!(update_collection_setting("// GSBuilder workshop collection (begin)", "34").is_err());
+        assert!(update_collection_launcher("# custom launcher\n", "34").is_err());
+        assert!(update_collection_launcher(COLLECTION_BEGIN, "34").is_err());
     }
 
     #[test]
