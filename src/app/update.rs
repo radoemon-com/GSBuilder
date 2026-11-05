@@ -135,22 +135,18 @@ fn latest_release(config: &Config, require_binary_asset: bool) -> AppResult<Opti
 }
 
 fn source_project_root() -> AppResult<Option<PathBuf>> {
-    if let Some(project_root) = std::env::var_os("GSBUILDER_PROJECT_DIR") {
-        let project_root = PathBuf::from(project_root);
-        if !is_source_project(&project_root) {
-            return Err(input_error(format!(
-                "GSBUILDER_PROJECT_DIR is not a Git source checkout: {}",
-                project_root.display()
-            )));
-        }
+    if let Some(project_root) = std::env::var_os("GSBUILDER_PROJECT_DIR")
+        && let Some(project_root) = source_project_root_at(Path::new(&project_root))
+    {
         return Ok(Some(project_root));
     }
 
     let executable = std::env::current_exe()?;
-    Ok(executable
-        .ancestors()
-        .find(|path| is_source_project(path))
-        .map(Path::to_path_buf))
+    Ok(executable.ancestors().find_map(source_project_root_at))
+}
+
+fn source_project_root_at(path: &Path) -> Option<PathBuf> {
+    is_source_project(path).then(|| path.to_path_buf())
 }
 
 fn is_source_project(path: &Path) -> bool {
@@ -443,7 +439,7 @@ fn parse_version(value: &str) -> AppResult<Version> {
 mod tests {
     use super::{
         check_and_update, compare_versions, ensure_clean_worktree, is_github_release_url,
-        replacement_path, write_binary_from_archive,
+        replacement_path, source_project_root_at, write_binary_from_archive,
     };
     use crate::core::config::Config;
     use crate::core::language::Language;
@@ -508,6 +504,17 @@ mod tests {
                 std::process::id()
             ))
         );
+    }
+
+    #[test]
+    fn packaged_release_directory_is_not_mistaken_for_a_source_checkout() {
+        let directory = temp_dir();
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(directory.join("Cargo.toml"), "[package]\n").unwrap();
+        assert!(source_project_root_at(&directory).is_none());
+        fs::create_dir(directory.join(".git")).unwrap();
+        assert_eq!(source_project_root_at(&directory), Some(directory.clone()));
+        fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]

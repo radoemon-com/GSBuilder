@@ -6,7 +6,15 @@
 
 ## 🚀 インストール方法・起動方法
 
-GitHub Releases から Linux x86_64 向けアーカイブをダウンロードし、Rust/Cargo なしでインストールできます。最新版の `GSBuilder-linux-x86_64.tar.gz` をダウンロードしてから、次を実行してください。
+Git clone からのインストールと、GitHub Releases のバイナリからのインストールを選べます。ソースからの更新を使いたい場合は、Git と Rust/Cargo が必要ですが、次の方法がおすすめです。
+
+```bash
+git clone https://github.com/radoemon-com/GSBuilder.git
+cd GSBuilder
+./install.sh
+```
+
+初回起動時に `start.sh` が Rust/Cargo でビルドします。GitHub Releases の Linux x86_64 向けバイナリなら Rust/Cargo なしで利用できます。最新版の `GSBuilder-linux-x86_64.tar.gz` をダウンロードしてから、次を実行してください。
 
 ```bash
 mkdir GSBuilder
@@ -27,7 +35,7 @@ cd GSBuilder
 gsbuilder
 ```
 
-`./install.sh` は `~/.local/bin/gsbuilder` から展開したフォルダー内の起動スクリプトへリンクし、シェル設定に `~/.local/bin` を追加します。ソースからインストールする場合は、Git と Rust/Cargo を用意してリポジトリをcloneし、同じく `./install.sh` を実行してください。
+`./install.sh` は `~/.local/bin/gsbuilder` からインストール先の起動スクリプトへリンクし、シェル設定に `~/.local/bin` を追加します。
 
 バイナリ配布アーカイブは Linux x86_64 向けです。`src/` は含まれず、コンパイル済み実行ファイルにプログラムが含まれるため、利用時にソースやRust/Cargoは不要です。アーカイブには `GSBuilder`、`start.sh`、`install.sh`、`config.toml`、`lang/`、`data/`、README を含めます。
 
@@ -79,7 +87,7 @@ GSBuilder> exit
 ```
 
 ### 🔄 アップデート
-`config.toml` の `[updates].github_repository` に `OWNER/REPOSITORY` を設定すると、起動時に GitHub Releases を確認します。新しいバージョンがあれば確認を表示します。Gitチェックアウトの `start.sh` 経由で起動している場合、承諾するとローカル変更がないことを確認してリリースタグまでソースをFast-forwardし、`cargo build --release --locked` で再ビルドして実行ファイルを更新します。未コミット変更がある場合は上書きを避けて更新を中止します。Gitチェックアウト外のバイナリでは従来どおりReleaseアーカイブから実行ファイルだけを更新します。設定・APIデータ・サーバーファイルは変更しません。自動アップデートは Linux x86_64 のみ対応し、設定が空欄なら確認もしません。
+`config.toml` の `[updates].github_repository` に `OWNER/REPOSITORY` を設定すると、起動時に GitHub Releases を確認します。新しいバージョンがあれば確認を表示します。Git clone したチェックアウトの `start.sh` 経由で起動している場合、承諾するとローカル変更がないことを確認してリリースタグまでソースをFast-forwardし、`cargo build --release --locked` で再ビルドして実行ファイルを更新します。未コミット変更がある場合（`config.toml` の編集を含む）は、上書きを避けて更新を中止します。Gitチェックアウト外のバイナリでは、Releaseアセット `GSBuilder-linux-x86_64.tar.gz` から実行ファイルだけを更新します。別の updater 実行ファイルは不要です。設定・APIデータ・サーバーファイルは変更しません。自動アップデートは Linux x86_64 のみ対応し、設定が空欄なら確認もしません。
 
 Gitチェックアウト外のバイナリ配布には、`GSBuilder-linux-x86_64.tar.gz` というアセット名で実行ファイル `GSBuilder` をアーカイブのルートに含めてください。Gitチェックアウトでのソース更新には、リリースタグがGitHub上に存在し、そのタグで `cargo build --release --locked` が成功することが必要です。どちらの方式でも実行ファイルの配置先に書き込み権限が必要です。
 
@@ -166,7 +174,7 @@ login_mode = "anonymous"  # "anonymous" または "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.3.0"
+user_agent = "GSBuilder/1.3.1"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
@@ -382,7 +390,7 @@ login_mode = "anonymous"            # "anonymous" or "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.3.0"
+user_agent = "GSBuilder/1.3.1"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
