@@ -154,7 +154,7 @@ fn prepare_install_target(target: &Path, run_as_user: &str) -> AppResult<()> {
     Ok(())
 }
 
-pub(super) fn prompt_for_steam_username(language: &Language) -> AppResult<String> {
+pub(crate) fn prompt_for_steam_username(language: &Language) -> AppResult<String> {
     print!("{}", language.text("steam.username.prompt")?);
     io::stdout().flush()?;
     let mut username = String::new();
@@ -168,7 +168,7 @@ pub(super) fn prompt_for_steam_username(language: &Language) -> AppResult<String
     Ok(username.to_owned())
 }
 
-pub(super) fn run_steamcmd(
+pub(crate) fn run_steamcmd(
     executable: &Path,
     args: &[String],
     run_as_user: &str,

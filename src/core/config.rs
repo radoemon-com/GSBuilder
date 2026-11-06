@@ -31,6 +31,7 @@ pub struct LanguageConfig {
 pub struct PathsConfig {
     pub minecraft_servers: PathBuf,
     pub steam_servers: PathBuf,
+    pub terraria_servers: PathBuf,
 }
 
 #[derive(Debug, Deserialize)]
@@ -94,6 +95,7 @@ impl Default for PathsConfig {
         Self {
             minecraft_servers: PathBuf::from("servers/Minecraft"),
             steam_servers: PathBuf::from("servers/{game}"),
+            terraria_servers: PathBuf::from("servers/Terraria"),
         }
     }
 }
@@ -232,6 +234,10 @@ impl Config {
 
     pub fn minecraft_servers_path(&self) -> PathBuf {
         self.resolve_path(&self.paths.minecraft_servers)
+    }
+
+    pub fn terraria_servers_path(&self) -> PathBuf {
+        self.resolve_path(&self.paths.terraria_servers)
     }
 
     pub fn minecraft_api_registry_path(&self) -> PathBuf {
@@ -388,6 +394,7 @@ mod tests {
             Path::new("servers/Minecraft")
         );
         assert_eq!(config.paths.steam_servers, Path::new("servers/{game}"));
+        assert_eq!(config.paths.terraria_servers, Path::new("servers/Terraria"));
         assert_eq!(config.minecraft.minimum_memory, "1G");
         assert_eq!(config.minecraft.maximum_memory, "2G");
         assert_eq!(

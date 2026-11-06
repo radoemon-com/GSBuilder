@@ -9,6 +9,8 @@ english_file = "lang/en.json"
 minecraft_servers = "servers/Minecraft"
 # Steam servers are created under this path; {game} is replaced with the game name.
 steam_servers = "servers/{game}"
+# Terraria servers are created under this directory, followed by <server_name>.
+terraria_servers = "servers/Terraria"
 
 [minecraft]
 java_executable = "java"
@@ -27,7 +29,7 @@ login_mode = "anonymous"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.3.1"
+user_agent = "GSBuilder/1.4.0"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"

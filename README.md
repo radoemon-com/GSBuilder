@@ -6,7 +6,7 @@
 
 ## 🚀 インストール方法・起動方法
 
-Git clone からのインストールと、GitHub Releases のバイナリからのインストールを選べます。ソースからの更新を使いたい場合は、Git と Rust/Cargo が必要ですが、次の方法がおすすめです。
+Git clone からのインストールと、GitHub Releases のバイナリからのインストールを選べます。ソース版の `./install.sh` は、Rust/Cargo がない場合に公式 rustup インストーラーをダウンロードして導入します（`curl` または `wget` が必要です）。
 
 ```bash
 git clone https://github.com/radoemon-com/GSBuilder.git
@@ -82,9 +82,17 @@ GSBuilder> mc api add forge forge-mirror "Forge Mirror" https://example.com "htt
 # Fabric Modの追加
 GSBuilder> mc mod add "Modded Server" "./my-mods/some-mod.jar"
 
+# Terraria サーバーの構築と tModLoader Mod の導入
+GSBuilder> terraria create vanilla "Terraria Server"
+GSBuilder> terraria create tmodloader "Modded Terraria"
+GSBuilder> terraria mod add "Modded Terraria" 1234567890 CalamityMod
+GSBuilder> terraria mod add-file "Modded Terraria" "./my-mods/ExampleMod.tmod"
+
 # 終了
 GSBuilder> exit
 ```
+
+Workshop Mod の内部名は、tModLoader の Workshop → Mod Packs から出力した `enabled.json` で確認してください。SteamCMD の導入にゲーム所有アカウントが必要な場合は、`config.toml` の `[steam].login_mode` を `"account"` に設定します。
 
 ### 🔄 アップデート
 `config.toml` の `[updates].github_repository` に `OWNER/REPOSITORY` を設定すると、起動時に GitHub Releases を確認します。新しいバージョンがあれば確認を表示します。Git clone したチェックアウトの `start.sh` 経由で起動している場合、承諾するとローカル変更がないことを確認してリリースタグまでソースをFast-forwardし、`cargo build --release --locked` で再ビルドして実行ファイルを更新します。未コミット変更がある場合（`config.toml` の編集を含む）は、上書きを避けて更新を中止します。Gitチェックアウト外のバイナリでは、Releaseアセット `GSBuilder-linux-x86_64.tar.gz` から実行ファイルだけを更新します。別の updater 実行ファイルは不要です。設定・APIデータ・サーバーファイルは変更しません。自動アップデートは Linux x86_64 のみ対応し、設定が空欄なら確認もしません。
@@ -123,14 +131,27 @@ Workshop コマンドは現在 Left 4 Dead 2 専用で、数字のIDまたはSte
 
 ---
 
+### 🟠 Terraria サーバー管理
+`terraria create vanilla <サーバー名>` は Terraria、`terraria create tmodloader <サーバー名>` は tModLoader サーバーを SteamCMD で導入します。Mod は tModLoader サーバーにのみ追加できます。
+
+```text
+GSBuilder> terraria create vanilla "Terraria Server"
+GSBuilder> terraria create tmodloader "Modded Terraria"
+GSBuilder> terraria mod add "Modded Terraria" 1234567890 CalamityMod
+GSBuilder> terraria mod add-file "Modded Terraria" "./my-mods/ExampleMod.tmod"
+```
+
+Workshop 形式はアイテム ID と Mod 内部名を指定し、ID を `Mods/install.txt`、有効化名を `Mods/enabled.json` に記録します。ローカル形式は `.tmod` ファイルを `Mods/` にコピーして有効化します。Terraria の SteamCMD App ID は `105600`、tModLoader は `1281930` です。
+
 ## 📝 サーバー構築の仕様
 
 ### 📂 保存先
 `config.toml` の `[paths]` セクションに従います。デフォルト設定は以下の通りです。
 - **Minecraft:** `servers/Minecraft/<サーバー名>`
 - **Steam:** `servers/<ゲーム名>/<サーバー名>`
+- **Terraria:** `servers/Terraria/<サーバー名>`
 - ⚠️ **上書き防止:** 既存データの上書きを避けるため、構築先フォルダーが空でない場合は構築を拒否します。
-- 💡 **例外:** Fabric の構築が途中で失敗し、構築先に `fabric-installer.jar` だけが残っている場合に限り、同じ `mc create fabric ...` コマンドを再実行して処理を再開できます。それ以外の既存ファイルがある場合は引き続き拒否されます。
+- 💡 **例外:** Fabric の構築が途中で失敗し、構築先に `fabric-installer.jar` だけが残っている場合、または Terraria の同じ種類の導入が途中で失敗した場合は、同じ作成コマンドを再実行できます。それ以外の既存ファイルがある場合は引き続き拒否されます。
 
 ### 🟩 Minecraft の挙動
 - Vanilla、Fabric、Forge、NeoForge、Paper と Minecraft のバージョンを選べます。
@@ -144,6 +165,10 @@ Workshop コマンドは現在 Left 4 Dead 2 専用で、数字のIDまたはSte
 - Fabric Mod は `mc mod add` で `mods/` へコピーできます。Steam Mod は `steam mod add` でローカルファイルをコピーできます。Left 4 Dead 2 は `steam workshop item` でWorkshop Add-onを取得し、`steam workshop collection` でコレクションの同期と更新を行います。ほかのSteamゲームのWorkshop連携には対応していません。
 
 ---
+
+### 🟠 Terraria の挙動
+- Vanilla Terraria と tModLoader のサーバーファイルを SteamCMD で導入し、`start.sh` / `start.bat` と初期設定を生成します。
+- Workshop Mod は SteamCMD で取得し、`Mods/install.txt` と `Mods/enabled.json` に登録します。ローカル `.tmod` ファイルも追加できます。Mod の追加は tModLoader サーバーに限ります。
 
 ## ⚙️ 設定ファイル (`config.toml`)
 
@@ -159,6 +184,7 @@ english_file = "lang/en.json"
 [paths]
 minecraft_servers = "servers/Minecraft"
 steam_servers = "servers/{game}"    # {game} はゲーム名に自動置換
+terraria_servers = "servers/Terraria"
 
 [minecraft]
 java_executable = "java"            # PATH上の名前、または実行ファイルのパス
@@ -174,7 +200,7 @@ login_mode = "anonymous"  # "anonymous" または "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.3.1"
+user_agent = "GSBuilder/1.4.0"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
@@ -203,6 +229,7 @@ github_repository = "radoemon-com/GSBuilder"
 - `src/core/` : 設定管理、多言語化（i18n）、エラーハンドリング、HTTP クライアント、パス・ファイル操作
 - `src/minecraft/` : Minecraft 関連機能、統合 Vanilla/Fabric インストーラー、API レジストリ (JSON)
 - `src/steam/` : Steam サーバー機能、SteamCMD 制御、Mod ファイル管理
+- `src/terraria/` : Terraria / tModLoader サーバー構築と Mod 管理
 - `data/minecraft/apis.json` : Minecraft バージョンマニフェストの永続化用 API レジストリ
 - `config.toml` : 実行時設定ファイル
 
@@ -251,7 +278,7 @@ cd GSBuilder
 ./install.sh
 ```
 
-The installer links `~/.local/bin/gsbuilder` to the launcher in the extracted folder and adds `~/.local/bin` to your shell configuration. To build from source instead, clone the repository and run `./install.sh` with Git and Rust/Cargo installed.
+The installer links `~/.local/bin/gsbuilder` to the launcher in the extracted folder and adds `~/.local/bin` to your shell configuration. For source installations, `./install.sh` downloads and runs the official rustup installer if Rust/Cargo are missing; `curl` or `wget` is required.
 
 The binary release archive supports Linux x86_64 and does not include `src/`. The compiled `GSBuilder` executable contains the program, so users do not need the source code or Rust/Cargo to run it. The archive includes `GSBuilder`, `start.sh`, `install.sh`, `config.toml`, `lang/`, `data/`, and this README.
 
@@ -298,9 +325,17 @@ GSBuilder> mc api add forge forge-mirror "Forge Mirror" https://example.com "htt
 # Add a Fabric Mod
 GSBuilder> mc mod add "Modded Server" "./my-mods/some-mod.jar"
 
+# Create Terraria servers and add tModLoader mods
+GSBuilder> terraria create vanilla "Terraria Server"
+GSBuilder> terraria create tmodloader "Modded Terraria"
+GSBuilder> terraria mod add "Modded Terraria" 1234567890 CalamityMod
+GSBuilder> terraria mod add-file "Modded Terraria" "./my-mods/ExampleMod.tmod"
+
 # Exit
 GSBuilder> exit
 ```
+
+For Workshop mods, find the mod's internal name in `enabled.json` exported from tModLoader's Workshop → Mod Packs menu. If SteamCMD requires ownership of the game, set `[steam].login_mode = "account"` in `config.toml`.
 
 ### 🔄 Updates
 Set `[updates].github_repository` in `config.toml` to `OWNER/REPOSITORY` to check GitHub Releases at startup. If a newer version is available, GSBuilder asks before updating. When launched through `start.sh` from a Git checkout, it verifies that the worktree has no local changes, fast-forwards the source to the release tag, rebuilds with `cargo build --release --locked`, and installs the rebuilt executable. If there are uncommitted changes, the update is stopped rather than overwriting them. Binaries outside a Git checkout continue to update only the executable from the release archive. Configuration, API data, and server files are not changed. Automatic updates are supported on Linux x86_64 only; leaving this setting empty disables update checks.
@@ -339,14 +374,27 @@ Workshop commands currently support Left 4 Dead 2 only and accept comma-separate
 
 ---
 
+### 🟠 Terraria Server Management
+`terraria create vanilla <server_name>` installs Terraria, while `terraria create tmodloader <server_name>` installs the tModLoader server. Mods can only be installed on tModLoader servers.
+
+```text
+GSBuilder> terraria create vanilla "Terraria Server"
+GSBuilder> terraria create tmodloader "Modded Terraria"
+GSBuilder> terraria mod add "Modded Terraria" 1234567890 CalamityMod
+GSBuilder> terraria mod add-file "Modded Terraria" "./my-mods/ExampleMod.tmod"
+```
+
+The Workshop form takes an item ID and mod internal name, recording the ID in `Mods/install.txt` and enabled name in `Mods/enabled.json`. The local form copies a `.tmod` file into `Mods/` and enables it. Terraria uses SteamCMD App ID `105600`; tModLoader uses `1281930`.
+
 ## 📝 Server Setup Details
 
 ### 📂 Save Locations
 Locations are configured in the `[paths]` section of `config.toml`. The default locations are:
 - **Minecraft:** `servers/Minecraft/<server_name>`
 - **Steam:** `servers/<game_name>/<server_name>`
+- **Terraria:** `servers/Terraria/<server_name>`
 - ⚠️ **Preventing overwrites:** To protect existing data, setup is refused if the target folder is not empty.
-- 💡 **Exception:** If Fabric setup fails and leaves only `fabric-installer.jar` in the target folder, you can rerun the same `mc create fabric ...` command to resume. Setup remains blocked if any other files are present.
+- 💡 **Exception:** If Fabric setup fails and leaves only `fabric-installer.jar`, or a Terraria installation of the same type fails partway through, rerun the same creation command to resume. Setup remains blocked for other non-empty targets.
 
 ### 🟩 Minecraft Behavior
 - Choose a Minecraft version and one of Vanilla, Fabric, Forge, NeoForge, or Paper.
@@ -360,6 +408,10 @@ Locations are configured in the `[paths]` section of `config.toml`. The default 
 - Use `mc mod add` to copy Fabric Mods into `mods/`. `steam mod add` copies local Steam mod files. For Left 4 Dead 2, `steam workshop item` downloads Workshop add-ons and `steam workshop collection` synchronizes registered collections and their updates. Other Steam games' Workshop integrations are not supported.
 
 ---
+
+### 🟠 Terraria Behavior
+- Vanilla Terraria and tModLoader server files are installed through SteamCMD. GSBuilder generates `start.sh` / `start.bat` and an initial server configuration.
+- Workshop mods are downloaded with SteamCMD and registered in `Mods/install.txt` and `Mods/enabled.json`. Local `.tmod` files can also be added. Mod installation is available only for tModLoader servers.
 
 ## ⚙️ Configuration (`config.toml`)
 
@@ -375,6 +427,7 @@ english_file = "lang/en.json"
 [paths]
 minecraft_servers = "servers/Minecraft"
 steam_servers = "servers/{game}"    # {game} is replaced with the game name
+terraria_servers = "servers/Terraria"
 
 [minecraft]
 java_executable = "java"            # Name on PATH or executable path
@@ -390,7 +443,7 @@ login_mode = "anonymous"            # "anonymous" or "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.3.1"
+user_agent = "GSBuilder/1.4.0"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
@@ -419,6 +472,7 @@ At startup, GSBuilder asks whether to install Java or SteamCMD if either is miss
 - `src/core/`: Configuration, localization (i18n), error handling, HTTP client, and path/file operations.
 - `src/minecraft/`: Minecraft features, unified Vanilla/Fabric installer, and JSON API registry.
 - `src/steam/`: Steam server features, SteamCMD control, and Mod file management.
+- `src/terraria/`: Terraria/tModLoader server setup and Mod management.
 - `data/minecraft/apis.json`: Persistent Minecraft version-manifest API registry.
 - `config.toml`: Runtime configuration file.
 

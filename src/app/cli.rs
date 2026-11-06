@@ -66,6 +66,10 @@ fn dispatch(config: &Config, language: &Language, words: &[String]) -> AppResult
             dispatch_steam(config, language, &words[1..])?;
             Ok(true)
         }
+        "terraria" => {
+            dispatch_terraria(config, language, &words[1..])?;
+            Ok(true)
+        }
         command => Err(input_error(
             language.format("cli.command.unknown", &[("command", command)])?,
         )),
@@ -110,6 +114,11 @@ fn help_key(args: &[String], verbose: bool) -> Option<&'static str> {
         | ["steam", "workshop", "item" | "collection" | "remove"]
         | ["steam", "workshop", "remove", "item" | "collection"] => {
             ("cli.help.short.steam.workshop", "cli.help.steam.workshop")
+        }
+        ["terraria"] => ("cli.help.short.terraria", "cli.help.terraria"),
+        ["terraria", "create"] => ("cli.help.short.terraria.create", "cli.help.terraria"),
+        ["terraria", "mod"] | ["terraria", "mod", "add" | "add-file"] => {
+            ("cli.help.short.terraria.mod", "cli.help.terraria.mod")
         }
         _ => return None,
     };
@@ -185,6 +194,25 @@ fn dispatch_steam(config: &Config, language: &Language, args: &[String]) -> AppR
             )),
         },
         _ => Err(input_error("Use 'help steam' for Steam commands")),
+    }
+}
+
+fn dispatch_terraria(config: &Config, language: &Language, args: &[String]) -> AppResult<()> {
+    let service = crate::terraria::TerrariaService::new(config, language);
+    match args.first().map(String::as_str) {
+        Some("create") if args.len() == 3 => service.create(&args[1], &args[2]),
+        Some("mod") => match args.get(1).map(String::as_str) {
+            Some("add") if args.len() == 5 => {
+                service.add_workshop_mod(&args[2], &args[3], &args[4])
+            }
+            Some("add-file") if args.len() == 4 => {
+                service.add_mod_file(&args[2], Path::new(&args[3]))
+            }
+            _ => Err(input_error(
+                "Usage: terraria mod add <server> <workshop_id> <mod_name> | add-file <server> <file.tmod>",
+            )),
+        },
+        _ => Err(input_error("Use 'help terraria' for Terraria commands")),
     }
 }
 
@@ -303,6 +331,17 @@ mod tests {
                 true
             ),
             Some("cli.help.steam.workshop")
+        );
+        assert_eq!(
+            help_key(&["terraria".to_owned(), "create".to_owned()], true),
+            Some("cli.help.terraria")
+        );
+        assert_eq!(
+            help_key(
+                &["terraria".to_owned(), "mod".to_owned(), "add".to_owned()],
+                true
+            ),
+            Some("cli.help.terraria.mod")
         );
         assert_eq!(help_key(&["unknown".to_owned()], false), None);
     }
