@@ -87,7 +87,7 @@ pub fn check_and_update(config: &Config, language: &Language) -> AppResult<bool>
         }
 
         let result = if let Some(project_root) = source_root {
-            apply_source_update(&release, &project_root, language)
+            apply_source_update(&release, &project_root)
         } else {
             apply_update(&release)
         };
@@ -199,11 +199,7 @@ fn apply_update(release: &Release) -> AppResult<()> {
     install_replacement(&replacement, &executable)
 }
 
-fn apply_source_update(
-    release: &Release,
-    project_root: &Path,
-    language: &Language,
-) -> AppResult<()> {
+fn apply_source_update(release: &Release, project_root: &Path) -> AppResult<()> {
     let tag_ref = format!("refs/tags/{}", release.tag_name);
     run_git(project_root, &["fetch", "--no-tags", "origin", &tag_ref])?;
     let workspace = create_update_workspace()?;
@@ -213,8 +209,6 @@ fn apply_source_update(
         merge_user_configuration(project_root, &source, &release.tag_name)?;
         merge_minecraft_apis(project_root, &source)?;
 
-        println!("{}", language.text("update.source.staging")?);
-        println!("{}", language.text("update.source.building")?);
         let status = Command::new("cargo")
             .arg("build")
             .arg("--release")

@@ -5,8 +5,6 @@
   "update.restart": "更新しました。新しいバージョンを使うには、GSBuilder を再起動してください。",
   "update.check_failed": "アップデート確認に失敗しました。現在のバージョンで続行します: {error}",
   "update.install_failed": "アップデートを適用できませんでした。現在のバージョンで続行します: {error}",
-  "update.source.staging": "更新版を一時ディレクトリに準備しています...",
-  "update.source.building": "一時ディレクトリで更新版をビルドしています...",
   "update.unsupported_platform": "自動アップデートは Linux x86_64 のみ対応しています。",
   "setup.java.missing": "Java が見つかりません。Minecraft サーバーの構築・起動には Java が必要です。",
   "setup.steamcmd.missing": "SteamCMD が見つかりません。",

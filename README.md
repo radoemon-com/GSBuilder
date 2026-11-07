@@ -208,7 +208,7 @@ login_mode = "anonymous"  # "anonymous" または "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.5.1"
+user_agent = "GSBuilder/1.5.2"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
@@ -457,7 +457,7 @@ login_mode = "anonymous"            # "anonymous" or "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.5.1"
+user_agent = "GSBuilder/1.5.2"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
