@@ -24,6 +24,7 @@ cd GSBuilder
 ```
 
 インストーラーが `gsbuilder` コマンドを設定します。現在のターミナルで使うには、表示されたコマンド（通常は次のとおり）を一度実行してください。新しいターミナルでは不要です。
+最後に「[完了] GSBuilder のインストールが完了しました」と表示されたら成功です。途中で失敗した場合は、エラー箇所を表示して終了します。
 
 ```bash
 . ~/.bashrc
@@ -208,7 +209,7 @@ login_mode = "anonymous"  # "anonymous" または "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.5.2"
+user_agent = "GSBuilder/1.5.3"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
@@ -265,7 +266,7 @@ cd GSBuilder
 ./install.sh
 ```
 
-The installer sets up the `gsbuilder` command. To use it in the current terminal, run the command printed by the installer (usually this):
+The installer reports each setup step and ends with an explicit success or failure message. It sets up the `gsbuilder` command. To use it in the current terminal, run the command printed by the installer (usually this):
 
 ```bash
 . ~/.bashrc
@@ -457,7 +458,7 @@ login_mode = "anonymous"            # "anonymous" or "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.5.2"
+user_agent = "GSBuilder/1.5.3"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
