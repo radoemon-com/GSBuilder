@@ -6,6 +6,7 @@ use crate::core::config::Config;
 use crate::core::error::{AppResult, input_error};
 use crate::core::language::Language;
 use crate::core::paths::{is_valid_component, prepare_target};
+use crate::core::servers::remove_server;
 use installer::ServerKind;
 use std::fs;
 use std::path::Path;
@@ -133,6 +134,19 @@ impl<'a> MinecraftService<'a> {
 
     pub fn add_mods(&self, server_name: &str, source: &Path) -> AppResult<()> {
         mods::add_to_server(self.config, self.language, server_name, source)
+    }
+
+    pub fn remove_server(&self, server_name: &str) -> AppResult<()> {
+        if !is_valid_component(server_name) {
+            return Err(input_error(self.language.text("paths.component.invalid")?));
+        }
+        let path = remove_server(&self.config.minecraft_servers_path(), server_name)?;
+        println!(
+            "{}",
+            self.language
+                .format("server.deleted", &[("path", &path.display().to_string())])?
+        );
+        Ok(())
     }
 }
 

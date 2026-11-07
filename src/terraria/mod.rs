@@ -2,6 +2,7 @@ use crate::core::config::Config;
 use crate::core::error::{AppResult, input_error};
 use crate::core::language::Language;
 use crate::core::paths::{is_valid_component, prepare_target};
+use crate::core::servers::remove_server;
 use crate::steam::{prompt_for_steam_username, run_steamcmd};
 use serde_json::Value;
 use std::fs;
@@ -114,6 +115,19 @@ impl<'a> TerrariaService<'a> {
             "{} {}",
             self.language.text("server.ready")?,
             target.display()
+        );
+        Ok(())
+    }
+
+    pub fn remove_server(&self, server_name: &str) -> AppResult<()> {
+        if !is_valid_component(server_name) {
+            return Err(input_error(self.language.text("paths.component.invalid")?));
+        }
+        let path = remove_server(&self.config.terraria_servers_path(), server_name)?;
+        println!(
+            "{}",
+            self.language
+                .format("server.deleted", &[("path", &path.display().to_string())])?
         );
         Ok(())
     }

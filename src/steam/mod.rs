@@ -5,6 +5,7 @@ use crate::core::config::Config;
 use crate::core::error::{AppResult, input_error};
 use crate::core::language::Language;
 use crate::core::paths::{is_valid_component, prepare_target};
+use crate::core::servers::remove_server;
 use std::io::{self, Write};
 use std::path::Path;
 use std::process::Command;
@@ -61,6 +62,20 @@ impl<'a> SteamService<'a> {
             "{} {}",
             self.language.text("server.ready")?,
             target.display()
+        );
+        Ok(())
+    }
+
+    pub fn remove_server(&self, game: &str, server: &str) -> AppResult<()> {
+        if !is_valid_component(game) || !is_valid_component(server) {
+            return Err(input_error(self.language.text("paths.component.invalid")?));
+        }
+        let root = self.config.steam_servers_path(game)?;
+        let path = remove_server(&root, server)?;
+        println!(
+            "{}",
+            self.language
+                .format("server.deleted", &[("path", &path.display().to_string())])?
         );
         Ok(())
     }

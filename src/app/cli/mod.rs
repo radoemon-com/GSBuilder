@@ -1,36 +1,50 @@
 use crate::core::config::Config;
 use crate::core::error::{AppResult, input_error};
 use crate::core::language::Language;
-use crate::minecraft::MinecraftService;
-use crate::steam::SteamService;
-use rustyline::DefaultEditor;
-use rustyline::error::ReadlineError;
-use std::path::Path;
+use std::io::{self, Write};
+
+mod commands;
+
+fn confirm_server_deletion(language: &Language, server_name: &str) -> AppResult<bool> {
+    print!(
+        "{}",
+        language.format("server.delete.confirm", &[("name", server_name)])?
+    );
+    io::stdout().flush()?;
+    let mut confirmation = String::new();
+    if io::stdin().read_line(&mut confirmation)? == 0
+        || confirmation.trim_end_matches(['\r', '\n']) != server_name
+    {
+        println!("{}", language.text("server.delete.cancelled")?);
+        return Ok(false);
+    }
+    Ok(true)
+}
 
 pub fn run(config: &Config, language: &Language) -> AppResult<()> {
-    let mut editor = DefaultEditor::new()?;
     loop {
-        let line = match editor.readline(language.text("cli.prompt")?) {
-            Ok(line) => line,
-            Err(ReadlineError::Interrupted) => {
+        print!("{}", language.text("cli.prompt")?);
+        io::stdout().flush()?;
+        let mut line = String::new();
+        match io::stdin().read_line(&mut line) {
+            Ok(0) => break,
+            Ok(_) => {}
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => {
                 println!();
                 continue;
             }
-            Err(ReadlineError::Eof) => break,
             Err(error) => return Err(Box::new(error)),
-        };
+        }
         let words = match tokenize(&line) {
             Ok(words) => words,
             Err(_) => {
                 eprintln!("{}", language.text("cli.parse.unclosed_quote")?);
-                editor.add_history_entry(&line)?;
                 continue;
             }
         };
         if words.is_empty() {
             continue;
         }
-        editor.add_history_entry(&line)?;
         match dispatch(config, language, &words) {
             Ok(true) => {}
             Ok(false) => break,
@@ -59,15 +73,15 @@ fn dispatch(config: &Config, language: &Language, words: &[String]) -> AppResult
         }
         "exit" | "quit" => Ok(false),
         "mc" | "minecraft" => {
-            dispatch_minecraft(config, language, &words[1..])?;
+            commands::minecraft(config, language, &words[1..])?;
             Ok(true)
         }
         "steam" => {
-            dispatch_steam(config, language, &words[1..])?;
+            commands::steam(config, language, &words[1..])?;
             Ok(true)
         }
         "terraria" => {
-            dispatch_terraria(config, language, &words[1..])?;
+            commands::terraria(config, language, &words[1..])?;
             Ok(true)
         }
         command => Err(input_error(
@@ -93,6 +107,15 @@ fn help_key(args: &[String], verbose: bool) -> Option<&'static str> {
     let (short, detailed) = match topic.as_slice() {
         [] | ["all"] => ("cli.help.short", "cli.help"),
         ["mc" | "minecraft"] => ("cli.help.short.mc", "cli.help.minecraft"),
+        ["mc" | "minecraft", "server"] => ("cli.help.short.mc", "cli.help.minecraft"),
+        ["mc" | "minecraft", "server", "create"] => {
+            ("cli.help.short.mc.create", "cli.help.mc.create")
+        }
+        ["mc" | "minecraft", "server", "delete"]
+        | ["steam", "server", "delete"]
+        | ["terraria", "server", "delete"] => {
+            ("cli.help.short.server.delete", "cli.help.server.delete")
+        }
         ["mc" | "minecraft", "api"] | ["mc" | "minecraft", "api", "list" | "remove"] => {
             ("cli.help.short.mc.api", "cli.help.mc.api")
         }
@@ -106,7 +129,10 @@ fn help_key(args: &[String], verbose: bool) -> Option<&'static str> {
             ("cli.help.short.mc.mod", "cli.help.mc.mod")
         }
         ["steam"] => ("cli.help.short.steam", "cli.help.steam"),
-        ["steam", "install"] => ("cli.help.short.steam.install", "cli.help.steam.install"),
+        ["steam", "server"] => ("cli.help.short.steam", "cli.help.steam"),
+        ["steam", "server", "create"] | ["steam", "install"] => {
+            ("cli.help.short.steam.install", "cli.help.steam.install")
+        }
         ["steam", "mod"] => ("cli.help.short.steam.mod", "cli.help.steam.mod"),
         ["steam", "mod", "add"] => ("cli.help.short.steam.mod.add", "cli.help.steam.mod.add"),
         ["steam", "mod", "list"] => ("cli.help.short.steam.mod.list", "cli.help.steam.mod.list"),
@@ -116,112 +142,16 @@ fn help_key(args: &[String], verbose: bool) -> Option<&'static str> {
             ("cli.help.short.steam.workshop", "cli.help.steam.workshop")
         }
         ["terraria"] => ("cli.help.short.terraria", "cli.help.terraria"),
-        ["terraria", "create"] => ("cli.help.short.terraria.create", "cli.help.terraria"),
+        ["terraria", "server"] => ("cli.help.short.terraria", "cli.help.terraria"),
+        ["terraria", "server", "create"] | ["terraria", "create"] => {
+            ("cli.help.short.terraria.create", "cli.help.terraria")
+        }
         ["terraria", "mod"] | ["terraria", "mod", "add" | "add-file"] => {
             ("cli.help.short.terraria.mod", "cli.help.terraria.mod")
         }
         _ => return None,
     };
     Some(if verbose { detailed } else { short })
-}
-
-fn dispatch_minecraft(config: &Config, language: &Language, args: &[String]) -> AppResult<()> {
-    let service = MinecraftService::new(config, language);
-    match args.first().map(String::as_str) {
-        Some("api") => match args.get(1).map(String::as_str) {
-            Some("list") if args.len() == 2 => service.list_apis(),
-            Some("add") if args.len() >= 5 => {
-                service.add_api(&args[2], &args[3], &args[4], &args[5..])
-            }
-            Some("remove") if args.len() == 3 => service.remove_api(&args[2]),
-            _ => Err(input_error(
-                "Usage: mc api list | add <provider_type> <api_id> <name> <endpoint_url...> | remove <api_id>",
-            )),
-        },
-        Some("versions") if args.len() == 2 => service.list_versions(&args[1]),
-        Some("loaders") if args.len() == 3 => service.list_fabric_loaders(&args[1], &args[2]),
-        Some("create") if (args.len() == 4 || args.len() == 5) => service.create(
-            &args[1],
-            &args[2],
-            &args[3],
-            args.get(4).map(String::as_str),
-        ),
-        Some("mod") => match args.get(1).map(String::as_str) {
-            Some("add") if args.len() == 4 => service.add_mods(&args[2], Path::new(&args[3])),
-            _ => Err(input_error("Usage: mc mod add <server> <source_directory>")),
-        },
-        _ => Err(input_error("Use 'help mc' for Minecraft commands")),
-    }
-}
-
-fn dispatch_steam(config: &Config, language: &Language, args: &[String]) -> AppResult<()> {
-    let service = SteamService::new(config, language);
-    match args.first().map(String::as_str) {
-        Some("install") if args.len() == 3 || args.len() == 4 => {
-            let (game, server, app_id) = steam_install_args(args);
-            service.install(game, server, app_id)
-        }
-        Some("mod") => match args.get(1).map(String::as_str) {
-            Some("add") if (args.len() == 5 || args.len() == 6) => service.add_mods(
-                &args[2],
-                &args[3],
-                Path::new(&args[4]),
-                args.get(5).map(String::as_str),
-            ),
-            Some("list") if (args.len() == 4 || args.len() == 5) => {
-                service.list_mods(&args[2], &args[3], args.get(4).map(String::as_str))
-            }
-            _ => Err(input_error("Usage: steam mod add|list <game> <server> ...")),
-        },
-        Some("workshop") => match args.get(1).map(String::as_str) {
-            Some("item") if args.len() >= 5 => {
-                service.install_workshop_item(&args[2], &args[3], &args[4..].join(" "))
-            }
-            Some("collection") if args.len() >= 5 => {
-                service.install_workshop_collection(&args[2], &args[3], &args[4..].join(" "))
-            }
-            Some("remove") if args.len() >= 6 => match args[2].as_str() {
-                "item" => service.remove_workshop_item(&args[3], &args[4], &args[5..].join(" ")),
-                "collection" => {
-                    service.remove_workshop_collection(&args[3], &args[4], &args[5..].join(" "))
-                }
-                _ => Err(input_error(
-                    "Usage: steam workshop remove item|collection <game> <server_name> <id_or_url>[,...]",
-                )),
-            },
-            _ => Err(input_error(
-                "Usage: steam workshop item|collection <game> <server_name> <id_or_url>[,<id_or_url>...] | remove item|collection <game> <server_name> <id_or_url>[,<id_or_url>...]",
-            )),
-        },
-        _ => Err(input_error("Use 'help steam' for Steam commands")),
-    }
-}
-
-fn dispatch_terraria(config: &Config, language: &Language, args: &[String]) -> AppResult<()> {
-    let service = crate::terraria::TerrariaService::new(config, language);
-    match args.first().map(String::as_str) {
-        Some("create") if args.len() == 3 => service.create(&args[1], &args[2]),
-        Some("mod") => match args.get(1).map(String::as_str) {
-            Some("add") if args.len() == 5 => {
-                service.add_workshop_mod(&args[2], &args[3], &args[4])
-            }
-            Some("add-file") if args.len() == 4 => {
-                service.add_mod_file(&args[2], Path::new(&args[3]))
-            }
-            _ => Err(input_error(
-                "Usage: terraria mod add <server> <workshop_id> <mod_name> | add-file <server> <file.tmod>",
-            )),
-        },
-        _ => Err(input_error("Use 'help terraria' for Terraria commands")),
-    }
-}
-
-fn steam_install_args(args: &[String]) -> (&str, &str, &str) {
-    if args.len() == 3 {
-        (&args[1], &args[2], &args[1])
-    } else {
-        (&args[1], &args[2], &args[3])
-    }
 }
 
 fn tokenize(line: &str) -> AppResult<Vec<String>> {
@@ -265,7 +195,7 @@ fn tokenize(line: &str) -> AppResult<Vec<String>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{help_key, parse_help_args, steam_install_args, tokenize};
+    use super::{help_key, parse_help_args, tokenize};
 
     #[test]
     fn parses_quoted_paths_and_empty_quoted_arguments() {
@@ -296,6 +226,13 @@ mod tests {
         assert_eq!(
             help_key(&["steam".to_owned(), "install".to_owned()], false),
             Some("cli.help.short.steam.install")
+        );
+        assert_eq!(
+            help_key(
+                &["mc".to_owned(), "server".to_owned(), "delete".to_owned()],
+                true
+            ),
+            Some("cli.help.server.delete")
         );
         assert_eq!(
             help_key(&["mc".to_owned(), "create".to_owned()], true),
@@ -360,19 +297,5 @@ mod tests {
             parse_help_args(&["-v".to_owned(), "mc".to_owned()]),
             (vec!["mc".to_owned()], true)
         );
-    }
-
-    #[test]
-    fn supports_short_and_explicit_steam_install_arguments() {
-        let short = vec!["install".to_owned(), "222860".to_owned(), "test".to_owned()];
-        assert_eq!(steam_install_args(&short), ("222860", "test", "222860"));
-
-        let explicit = vec![
-            "install".to_owned(),
-            "Game".to_owned(),
-            "test".to_owned(),
-            "222860".to_owned(),
-        ];
-        assert_eq!(steam_install_args(&explicit), ("Game", "test", "222860"));
     }
 }

@@ -47,14 +47,14 @@ gsbuilder
 各コマンドに `--verbose` または `-v` フラグを付けると、説明付きの詳細ヘルプが表示されます（フラグはコマンド名の前後どちらにも配置可能です）。
 パスやゲーム名、サーバー名に空白が含まれる場合は、必ず `""` (ダブルクォーテーション) で囲んでください。
 
-入力中に上／下矢印キーを押すと、この起動中に入力したコマンド履歴を呼び出せます。履歴は終了後には保存されません。
+サーバー操作は Minecraft、Steam、Terraria で `server create` / `server delete` に統一しています。従来の `mc create`、`steam install`、`terraria create` も引き続き利用できます。削除時は確認プロンプトにサーバー名を完全一致で入力してください。サーバーファイルは復元できません。
 
 ### 🧱 基本・Minecraft サーバー管理
 ```text
 # ヘルプの表示
 GSBuilder> help
-GSBuilder> help steam install -v
-GSBuilder> help --verbose mc create
+GSBuilder> help steam server -v
+GSBuilder> help --verbose mc server create
 
 # API・バージョンの確認
 GSBuilder> mc api list
@@ -62,29 +62,34 @@ GSBuilder> mc versions mojang
 GSBuilder> mc loaders fabric 1.21.1
 
 # サーバーの新規作成 (各種コアに対応)
-GSBuilder> mc create vanilla 1.21.1 "My Server"
-GSBuilder> mc create fabric 1.21.1 "Modded Server"
-GSBuilder> mc create forge 1.21.1 "Forge Server"
-GSBuilder> mc create neoforge 1.21.1 "NeoForge Server"
-GSBuilder> mc create paper 1.21.1 "Paper Server"
+GSBuilder> mc server create vanilla 1.21.1 "My Server"
+GSBuilder> mc server create fabric 1.21.1 "Modded Server"
+GSBuilder> mc server create forge 1.21.1 "Forge Server"
+GSBuilder> mc server create neoforge 1.21.1 "NeoForge Server"
+GSBuilder> mc server create paper 1.21.1 "Paper Server"
 
 # カスタムAPI・ミラーサイトの追加
 GSBuilder> mc api add vanilla mirror "My API" https://example.com
-GSBuilder> mc create vanilla 1.21.1 "Mirror Server" mirror
+GSBuilder> mc server create vanilla 1.21.1 "Mirror Server" mirror
 
 # FabricカスタムAPIの追加
 GSBuilder> mc api add fabric fabric-mirror "Fabric Mirror" "https://example.com{minecraft_version}" "https://example.com" "https://example.com{version}.jar"
-GSBuilder> mc create fabric 1.21.1 "Custom Fabric" fabric-mirror
+GSBuilder> mc server create fabric 1.21.1 "Custom Fabric" fabric-mirror
 
 # ForgeカスタムAPIの追加
 GSBuilder> mc api add forge forge-mirror "Forge Mirror" https://example.com "https://example.com{minecraft_version}-{forge_version}.jar"
 
 # Fabric Modの追加
 GSBuilder> mc mod add "Modded Server" "./my-mods/some-mod.jar"
+GSBuilder> mc mod add "Modded Server" "./prism-modpack.zip"
+
+# Delete a server (type its exact name when prompted)
+GSBuilder> mc server delete "My Server"
 
 # Terraria サーバーの構築と tModLoader Mod の導入
-GSBuilder> terraria create vanilla "Terraria Server"
-GSBuilder> terraria create tmodloader "Modded Terraria"
+GSBuilder> terraria server create vanilla "Terraria Server"
+GSBuilder> terraria server create tmodloader "Modded Terraria"
+GSBuilder> terraria server delete "Terraria Server"
 GSBuilder> terraria mod add "Modded Terraria" 1234567890 CalamityMod
 GSBuilder> terraria mod add-file "Modded Terraria" "./my-mods/ExampleMod.tmod"
 
@@ -102,16 +107,19 @@ Gitチェックアウト外のバイナリ配布には、`GSBuilder-linux-x86_64
 ### 💨 Steam サーバー管理
 ```text
 # サーバーのインストール (App IDをフォルダー名として使う短い形式)
-GSBuilder> steam install 1007 "My Server"
+GSBuilder> steam server create 1007 "My Server"
 
 # サーバーのインストール (ゲーム名(フォルダー名)を指定してインストールする場合)
-GSBuilder> steam install CoreKeeper "My Server" 1007
+GSBuilder> steam server create CoreKeeper "My Server" 1007
 
 # Modの追加 (対象ゲーム、サーバー名、コピー元パス、[配置先相対パス])
 GSBuilder> steam mod add CoreKeeper "My Server" "./my-mods" mods
 
 # 導入済みModの一覧表示
 GSBuilder> steam mod list CoreKeeper "My Server"
+
+# サーバーの削除 (ゲーム名とサーバー名を指定し、名前を確認入力)
+GSBuilder> steam server delete CoreKeeper "My Server"
 
 # Left 4 Dead 2 のWorkshop Add-onを追加 (複数のID/URLを混在可能)
 GSBuilder> steam workshop item L4D2 "My Server" 1234567890
@@ -132,11 +140,11 @@ Workshop コマンドは現在 Left 4 Dead 2 専用で、数字のIDまたはSte
 ---
 
 ### 🟠 Terraria サーバー管理
-`terraria create vanilla <サーバー名>` は Terraria、`terraria create tmodloader <サーバー名>` は tModLoader サーバーを SteamCMD で導入します。Mod は tModLoader サーバーにのみ追加できます。
+`terraria server create vanilla <サーバー名>` は Terraria、`terraria server create tmodloader <サーバー名>` は tModLoader サーバーを SteamCMD で導入します。`terraria server delete <サーバー名>` でサーバーを削除できます。Mod は tModLoader サーバーにのみ追加できます。従来の `terraria create` 形式も利用できます。
 
 ```text
-GSBuilder> terraria create vanilla "Terraria Server"
-GSBuilder> terraria create tmodloader "Modded Terraria"
+GSBuilder> terraria server create vanilla "Terraria Server"
+GSBuilder> terraria server create tmodloader "Modded Terraria"
 GSBuilder> terraria mod add "Modded Terraria" 1234567890 CalamityMod
 GSBuilder> terraria mod add-file "Modded Terraria" "./my-mods/ExampleMod.tmod"
 ```
@@ -162,7 +170,7 @@ Workshop 形式はアイテム ID と Mod 内部名を指定し、ID を `Mods/i
 ### 💨 Steam の挙動
 - Steam サーバーは SteamCMD の dedicated-server App ID を入力して構築します。
 - `[steam].login_mode` が `account` の場合、インストール時に Steam ユーザー名を求められます。パスワードや Steam Guard コードは SteamCMD の対話プロンプトに入力し、GSBuilder の設定やコマンド引数には保存されません。
-- Fabric Mod は `mc mod add` で `mods/` へコピーできます。Steam Mod は `steam mod add` でローカルファイルをコピーできます。Left 4 Dead 2 は `steam workshop item` でWorkshop Add-onを取得し、`steam workshop collection` でコレクションの同期と更新を行います。ほかのSteamゲームのWorkshop連携には対応していません。
+- Fabric Mod は `mc mod add` で `mods/` へコピーできます。Modrinthのindexを含むPrism Launcher互換ZIPからのMod取得にも対応し、ZIPに同梱されたModも取り込めます。Steam Mod は `steam mod add` でローカルファイルをコピーできます。Left 4 Dead 2 は `steam workshop item` でWorkshop Add-onを取得し、`steam workshop collection` でコレクションの同期と更新を行います。ほかのSteamゲームのWorkshop連携には対応していません。
 
 ---
 
@@ -200,7 +208,7 @@ login_mode = "anonymous"  # "anonymous" または "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.4.0"
+user_agent = "GSBuilder/1.5.0"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
@@ -290,14 +298,14 @@ Type `help` after launching to display a concise command list.
 Append `--verbose` or `-v` to a help topic to see detailed descriptions (the flag can appear before or after the topic).
 If paths, game names, or server names contain spaces, enclose them in double quotes (`"..."`).
 
-Press the Up/Down arrow keys while entering commands to recall commands entered during the current session. Command history is not saved after exiting.
+Server commands use the same `server create` / `server delete` structure for Minecraft, Steam, and Terraria. The older `mc create`, `steam install`, and `terraria create` commands remain supported. Deletion requires typing the exact server name at the confirmation prompt; deleted server files cannot be restored.
 
 ### 🧱 General & Minecraft Server Management
 ```text
 # Display help
 GSBuilder> help
-GSBuilder> help steam install -v
-GSBuilder> help --verbose mc create
+GSBuilder> help steam server -v
+GSBuilder> help --verbose mc server create
 
 # Check APIs and versions
 GSBuilder> mc api list
@@ -305,29 +313,31 @@ GSBuilder> mc versions mojang
 GSBuilder> mc loaders fabric 1.21.1
 
 # Create a server (supports multiple server types)
-GSBuilder> mc create vanilla 1.21.1 "My Server"
-GSBuilder> mc create fabric 1.21.1 "Modded Server"
-GSBuilder> mc create forge 1.21.1 "Forge Server"
-GSBuilder> mc create neoforge 1.21.1 "NeoForge Server"
-GSBuilder> mc create paper 1.21.1 "Paper Server"
+GSBuilder> mc server create vanilla 1.21.1 "My Server"
+GSBuilder> mc server create fabric 1.21.1 "Modded Server"
+GSBuilder> mc server create forge 1.21.1 "Forge Server"
+GSBuilder> mc server create neoforge 1.21.1 "NeoForge Server"
+GSBuilder> mc server create paper 1.21.1 "Paper Server"
 
 # Add a custom API or mirror
 GSBuilder> mc api add vanilla mirror "My API" https://example.com
-GSBuilder> mc create vanilla 1.21.1 "Mirror Server" mirror
+GSBuilder> mc server create vanilla 1.21.1 "Mirror Server" mirror
 
 # Add a custom Fabric API
 GSBuilder> mc api add fabric fabric-mirror "Fabric Mirror" "https://example.com{minecraft_version}" "https://example.com" "https://example.com{version}.jar"
-GSBuilder> mc create fabric 1.21.1 "Custom Fabric" fabric-mirror
+GSBuilder> mc server create fabric 1.21.1 "Custom Fabric" fabric-mirror
 
 # Add a custom Forge API
 GSBuilder> mc api add forge forge-mirror "Forge Mirror" https://example.com "https://example.com{minecraft_version}-{forge_version}.jar"
 
 # Add a Fabric Mod
 GSBuilder> mc mod add "Modded Server" "./my-mods/some-mod.jar"
+GSBuilder> mc mod add "Modded Server" "./prism-modpack.zip"
+GSBuilder> mc server delete "My Server"
 
 # Create Terraria servers and add tModLoader mods
-GSBuilder> terraria create vanilla "Terraria Server"
-GSBuilder> terraria create tmodloader "Modded Terraria"
+GSBuilder> terraria server create vanilla "Terraria Server"
+GSBuilder> terraria server create tmodloader "Modded Terraria"
 GSBuilder> terraria mod add "Modded Terraria" 1234567890 CalamityMod
 GSBuilder> terraria mod add-file "Modded Terraria" "./my-mods/ExampleMod.tmod"
 
@@ -344,17 +354,20 @@ For binary installations outside a Git checkout, publish a release asset named `
 
 ### 💨 Steam Server Management
 ```text
-# Install a server (short form uses the App ID as the folder name)
-GSBuilder> steam install 1007 "My Server"
+# Create a server (short form uses the App ID as the folder name)
+GSBuilder> steam server create 1007 "My Server"
 
-# Install a server with a specified game/folder name
-GSBuilder> steam install CoreKeeper "My Server" 1007
+# Create a server with a specified game/folder name
+GSBuilder> steam server create CoreKeeper "My Server" 1007
 
 # Add a Mod (game, server, source path, [relative destination])
 GSBuilder> steam mod add CoreKeeper "My Server" "./my-mods" mods
 
 # List installed Mods
 GSBuilder> steam mod list CoreKeeper "My Server"
+
+# Delete a server (game folder and server name; type the exact server name)
+GSBuilder> steam server delete CoreKeeper "My Server"
 
 # Install Left 4 Dead 2 Workshop add-ons (comma-separated IDs/URLs)
 GSBuilder> steam workshop item L4D2 "My Server" 1234567890
@@ -375,11 +388,12 @@ Workshop commands currently support Left 4 Dead 2 only and accept comma-separate
 ---
 
 ### 🟠 Terraria Server Management
-`terraria create vanilla <server_name>` installs Terraria, while `terraria create tmodloader <server_name>` installs the tModLoader server. Mods can only be installed on tModLoader servers.
+`terraria server create vanilla <server_name>` installs Terraria, while `terraria server create tmodloader <server_name>` installs the tModLoader server. Use `terraria server delete <server_name>` to remove a server after confirming its exact name. Mods can only be installed on tModLoader servers. The older `terraria create` command remains supported.
 
 ```text
-GSBuilder> terraria create vanilla "Terraria Server"
-GSBuilder> terraria create tmodloader "Modded Terraria"
+GSBuilder> terraria server create vanilla "Terraria Server"
+GSBuilder> terraria server create tmodloader "Modded Terraria"
+GSBuilder> terraria server delete "Terraria Server"
 GSBuilder> terraria mod add "Modded Terraria" 1234567890 CalamityMod
 GSBuilder> terraria mod add-file "Modded Terraria" "./my-mods/ExampleMod.tmod"
 ```
@@ -405,7 +419,7 @@ Locations are configured in the `[paths]` section of `config.toml`. The default 
 ### 💨 Steam Behavior
 - Enter the Steam dedicated-server App ID to install a Steam server using SteamCMD.
 - If `[steam].login_mode` is `account`, GSBuilder asks for your Steam username during installation. Enter your password and Steam Guard code in SteamCMD's interactive prompt; they are not saved in GSBuilder settings or command arguments.
-- Use `mc mod add` to copy Fabric Mods into `mods/`. `steam mod add` copies local Steam mod files. For Left 4 Dead 2, `steam workshop item` downloads Workshop add-ons and `steam workshop collection` synchronizes registered collections and their updates. Other Steam games' Workshop integrations are not supported.
+- Use `mc mod add` to copy Fabric Mods into `mods/`. Passing a Modrinth/Prism modpack ZIP downloads server-side mods listed in its index; ZIPs with bundled `mods/` files are also supported. A successful ZIP import replaces the server's `mods/` folder only after all downloads and checksum checks succeed. CurseForge manifest-only packs cannot be downloaded without their mod files or CurseForge API access. `steam mod add` copies local Steam mod files. For Left 4 Dead 2, `steam workshop item` downloads Workshop add-ons and `steam workshop collection` synchronizes registered collections and their updates. Other Steam games' Workshop integrations are not supported.
 
 ---
 
@@ -443,7 +457,7 @@ login_mode = "anonymous"            # "anonymous" or "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.4.0"
+user_agent = "GSBuilder/1.5.0"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"

@@ -29,7 +29,7 @@ login_mode = "anonymous"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.4.0"
+user_agent = "GSBuilder/1.5.0"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
