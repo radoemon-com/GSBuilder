@@ -5,6 +5,8 @@
   "update.restart": "Update installed. Restart GSBuilder to use the new version.",
   "update.check_failed": "Could not check for updates; continuing with the current version: {error}",
   "update.install_failed": "Could not apply the update; continuing with the current version: {error}",
+  "update.source.staging": "Preparing the update in a temporary directory...",
+  "update.source.building": "Building the update in the temporary directory...",
   "update.unsupported_platform": "Automatic updates are supported only on Linux x86_64.",
   "setup.java.missing": "Java was not found. Java is required to build and run Minecraft servers.",
   "setup.steamcmd.missing": "SteamCMD was not found.",

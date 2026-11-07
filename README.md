@@ -100,7 +100,7 @@ GSBuilder> exit
 Workshop Mod の内部名は、tModLoader の Workshop → Mod Packs から出力した `enabled.json` で確認してください。SteamCMD の導入にゲーム所有アカウントが必要な場合は、`config.toml` の `[steam].login_mode` を `"account"` に設定します。
 
 ### 🔄 アップデート
-`config.toml` の `[updates].github_repository` に `OWNER/REPOSITORY` を設定すると、起動時に GitHub Releases を確認します。新しいバージョンがあれば確認を表示します。Git clone したチェックアウトの `start.sh` 経由で起動している場合、承諾するとローカル変更がないことを確認してリリースタグまでソースをFast-forwardし、`cargo build --release --locked` で再ビルドして実行ファイルを更新します。未コミット変更がある場合（`config.toml` の編集を含む）は、上書きを避けて更新を中止します。Gitチェックアウト外のバイナリでは、Releaseアセット `GSBuilder-linux-x86_64.tar.gz` から実行ファイルだけを更新します。別の updater 実行ファイルは不要です。設定・APIデータ・サーバーファイルは変更しません。自動アップデートは Linux x86_64 のみ対応し、設定が空欄なら確認もしません。
+`config.toml` の `[updates].github_repository` に `OWNER/REPOSITORY` を設定すると、起動時に GitHub Releases を確認します。新しいバージョンがあれば確認を表示します。Git clone したチェックアウトの `start.sh` 経由で起動している場合、承諾すると一時 worktree に新しいソースを展開・ビルドし、成功後にソースファイルを更新します。ローカル変更があっても更新できます。Gitのブランチ/HEADは移動せず、反映後は作業ツリーに更新差分が残ります。`config.toml` は現行版の項目に合わせてマージし、設定値を維持しながら新しい既定値を補完します。アプリの User-Agent は新バージョンに更新されます。Minecraft API のカスタム登録と既存値、サーバーデータ、Git管理外ファイルは維持します。更新に必要なソースや言語ファイルは新しい版に置き換わります。Gitチェックアウト外のバイナリでは、Releaseアセット `GSBuilder-linux-x86_64.tar.gz` から実行ファイルだけを更新します。別の updater 実行ファイルは不要です。自動アップデートは Linux x86_64 のみ対応し、設定が空欄なら確認もしません。
 
 Gitチェックアウト外のバイナリ配布には、`GSBuilder-linux-x86_64.tar.gz` というアセット名で実行ファイル `GSBuilder` をアーカイブのルートに含めてください。Gitチェックアウトでのソース更新には、リリースタグがGitHub上に存在し、そのタグで `cargo build --release --locked` が成功することが必要です。どちらの方式でも実行ファイルの配置先に書き込み権限が必要です。
 
@@ -208,7 +208,7 @@ login_mode = "anonymous"  # "anonymous" または "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.5.0"
+user_agent = "GSBuilder/1.5.1"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
@@ -348,7 +348,7 @@ GSBuilder> exit
 For Workshop mods, find the mod's internal name in `enabled.json` exported from tModLoader's Workshop → Mod Packs menu. If SteamCMD requires ownership of the game, set `[steam].login_mode = "account"` in `config.toml`.
 
 ### 🔄 Updates
-Set `[updates].github_repository` in `config.toml` to `OWNER/REPOSITORY` to check GitHub Releases at startup. If a newer version is available, GSBuilder asks before updating. When launched through `start.sh` from a Git checkout, it verifies that the worktree has no local changes, fast-forwards the source to the release tag, rebuilds with `cargo build --release --locked`, and installs the rebuilt executable. If there are uncommitted changes, the update is stopped rather than overwriting them. Binaries outside a Git checkout continue to update only the executable from the release archive. Configuration, API data, and server files are not changed. Automatic updates are supported on Linux x86_64 only; leaving this setting empty disables update checks.
+Set `[updates].github_repository` in `config.toml` to `OWNER/REPOSITORY` to check GitHub Releases at startup. If a newer version is available, GSBuilder asks before updating. When launched through `start.sh` from a Git checkout, it stages and builds the release in a temporary worktree, then updates source files only after the build succeeds. Local changes no longer block source updates. The Git branch and HEAD are not moved; after applying the update, the worktree contains the update changes. `config.toml` is merged against the new version's defaults: user values are retained, new settings are added, removed settings are dropped, and the application User-Agent is updated. Existing Minecraft API entries and server data are preserved; source code and language files are updated. Git-untracked files are left untouched. Binaries outside a Git checkout continue to update only the executable from the release archive. Automatic updates are supported on Linux x86_64 only; leaving this setting empty disables update checks.
 
 For binary installations outside a Git checkout, publish a release asset named `GSBuilder-linux-x86_64.tar.gz` containing an executable named `GSBuilder` at the archive root. For source installations, each release tag must build successfully with `cargo build --release --locked`. The directory containing the executable must be writable.
 
@@ -457,7 +457,7 @@ login_mode = "anonymous"            # "anonymous" or "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.5.0"
+user_agent = "GSBuilder/1.5.1"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
