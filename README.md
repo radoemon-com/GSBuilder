@@ -23,20 +23,22 @@ cd GSBuilder
 ./install.sh
 ```
 
-インストーラーが `gsbuilder` コマンドを設定します。現在のターミナルで使うには、表示されたコマンド（通常は次のとおり）を一度実行してください。新しいターミナルでは不要です。
+インストーラーが `gsb` と `gsbuilder` の起動コマンドを設定します。現在のターミナルで使うには、表示されたコマンド（通常は次のとおり）を一度実行してください。新しいターミナルでは不要です。
 最後に「[完了] GSBuilder のインストールが完了しました」と表示されたら成功です。途中で失敗した場合は、エラー箇所を表示して終了します。
 
 ```bash
 . ~/.bashrc
 ```
 
-インストール後は、ターミナルのどこからでも次で起動できます。
+インストール後は、ターミナルのどこからでもどちらのコマンドでも起動できます。
 
 ```bash
+gsb
+# または
 gsbuilder
 ```
 
-`./install.sh` は `~/.local/bin/gsbuilder` からインストール先の起動スクリプトへリンクし、シェル設定に `~/.local/bin` を追加します。
+`./install.sh` は `~/.local/bin/gsb` と `~/.local/bin/gsbuilder` からインストール先の起動スクリプトへリンクし、シェル設定に `~/.local/bin` を追加します。Java と SteamCMD の確認・導入は、MinecraftやSteam/Terrariaで必要な操作を初めて行うときまで遅延します。
 
 バイナリ配布アーカイブは Linux x86_64 向けです。`src/` は含まれず、コンパイル済み実行ファイルにプログラムが含まれるため、利用時にソースやRust/Cargoは不要です。アーカイブには `GSBuilder`、`start.sh`、`install.sh`、`config.toml`、`lang/`、`data/`、README を含めます。
 
@@ -209,7 +211,7 @@ login_mode = "anonymous"  # "anonymous" または "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.5.3"
+user_agent = "GSBuilder/1.5.4"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
@@ -458,7 +460,7 @@ login_mode = "anonymous"            # "anonymous" or "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.5.3"
+user_agent = "GSBuilder/1.5.4"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"

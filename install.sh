@@ -4,6 +4,7 @@ set -eu
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 install_dir="${XDG_BIN_HOME:-$HOME/.local/bin}"
 command_path="$install_dir/gsbuilder"
+short_command_path="$install_dir/gsb"
 install_step="インストールの準備"
 rustup_installer=""
 
@@ -14,7 +15,7 @@ finish_install() {
     fi
     if [ "$result" -eq 0 ]; then
         printf '\n[完了] GSBuilder のインストールが完了しました。\n'
-        printf '起動コマンド: gsbuilder\n'
+        printf '起動コマンド: gsb または gsbuilder\n'
     else
         printf '\n[失敗] %s でエラーが発生しました (終了コード: %s)。\n' \
             "$install_step" "$result" >&2
@@ -66,17 +67,31 @@ mkdir -p "$install_dir"
 
 install_step="起動コマンドの設定"
 printf '[3/4] 起動コマンドを設定しています...\n'
-if [ -e "$command_path" ] || [ -L "$command_path" ]; then
-    if [ -L "$command_path" ] && [ "$(readlink -f -- "$command_path")" = "$(readlink -f -- "$project_dir/start.sh")" ]; then
-        printf '起動コマンドはすでに設定されています: %s\n' "$command_path"
-    else
-        printf '既存のパスを上書きできません: %s\n' "$command_path" >&2
-        exit 1
+check_command_link() {
+    link_path=$1
+    if [ -e "$link_path" ] || [ -L "$link_path" ]; then
+        if [ -L "$link_path" ] && [ "$(readlink -f -- "$link_path")" = "$(readlink -f -- "$project_dir/start.sh")" ]; then
+            return 0
+        fi
+        printf '既存のパスを上書きできません: %s\n' "$link_path" >&2
+        return 1
     fi
-else
-    ln -s "$project_dir/start.sh" "$command_path"
-    printf '起動コマンドを作成しました: %s\n' "$command_path"
-fi
+}
+
+create_command_link() {
+    link_path=$1
+    if [ -L "$link_path" ] && [ "$(readlink -f -- "$link_path")" = "$(readlink -f -- "$project_dir/start.sh")" ]; then
+        printf '起動コマンドはすでに設定されています: %s\n' "$link_path"
+    else
+        ln -s "$project_dir/start.sh" "$link_path"
+        printf '起動コマンドを作成しました: %s\n' "$link_path"
+    fi
+}
+
+check_command_link "$command_path"
+check_command_link "$short_command_path"
+create_command_link "$command_path"
+create_command_link "$short_command_path"
 
 install_step="シェルの PATH 設定"
 printf '[4/4] シェルの PATH を確認しています...\n'

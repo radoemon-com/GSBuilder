@@ -1,3 +1,4 @@
+use crate::app::bootstrap;
 use crate::core::config::Config;
 use crate::core::error::{AppResult, input_error};
 use crate::core::language::Language;
@@ -21,7 +22,9 @@ fn confirm_server_deletion(language: &Language, server_name: &str) -> AppResult<
     Ok(true)
 }
 
-pub fn run(config: &Config, language: &Language) -> AppResult<()> {
+pub fn run(config: &mut Config, language: &Language) -> AppResult<()> {
+    let mut java_checked = false;
+    let mut steamcmd_checked = false;
     loop {
         print!("{}", language.text("cli.prompt")?);
         io::stdout().flush()?;
@@ -45,6 +48,14 @@ pub fn run(config: &Config, language: &Language) -> AppResult<()> {
         if words.is_empty() {
             continue;
         }
+        if requires_java(&words) && !java_checked {
+            bootstrap::ensure_java(config, language)?;
+            java_checked = true;
+        }
+        if requires_steamcmd(&words) && !steamcmd_checked {
+            bootstrap::ensure_steamcmd(config, language)?;
+            steamcmd_checked = true;
+        }
         match dispatch(config, language, &words) {
             Ok(true) => {}
             Ok(false) => break,
@@ -56,6 +67,36 @@ pub fn run(config: &Config, language: &Language) -> AppResult<()> {
     }
     println!("{}", language.text("cli.goodbye")?);
     Ok(())
+}
+
+fn requires_java(words: &[String]) -> bool {
+    match (
+        words.first().map(String::as_str),
+        words.get(1).map(String::as_str),
+        words.get(2).map(String::as_str),
+    ) {
+        (Some("mc" | "minecraft"), Some("create"), _) => matches!(words.len(), 5 | 6),
+        (Some("mc" | "minecraft"), Some("server"), Some("create")) => {
+            matches!(words.len(), 6 | 7)
+        }
+        _ => false,
+    }
+}
+
+fn requires_steamcmd(words: &[String]) -> bool {
+    match (
+        words.first().map(String::as_str),
+        words.get(1).map(String::as_str),
+        words.get(2).map(String::as_str),
+    ) {
+        (Some("steam"), Some("install"), _) => matches!(words.len(), 4 | 5),
+        (Some("steam"), Some("server"), Some("create")) => matches!(words.len(), 5 | 6),
+        (Some("steam"), Some("workshop"), Some("item" | "collection")) => words.len() >= 6,
+        (Some("terraria"), Some("create"), _) => words.len() == 4,
+        (Some("terraria"), Some("server"), Some("create")) => words.len() == 5,
+        (Some("terraria"), Some("mod"), Some("add")) => words.len() == 6,
+        _ => false,
+    }
 }
 
 fn dispatch(config: &Config, language: &Language, words: &[String]) -> AppResult<bool> {
@@ -195,7 +236,7 @@ fn tokenize(line: &str) -> AppResult<Vec<String>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{help_key, parse_help_args, tokenize};
+    use super::{help_key, parse_help_args, requires_java, requires_steamcmd, tokenize};
 
     #[test]
     fn parses_quoted_paths_and_empty_quoted_arguments() {
@@ -297,5 +338,48 @@ mod tests {
             parse_help_args(&["-v".to_owned(), "mc".to_owned()]),
             (vec!["mc".to_owned()], true)
         );
+    }
+
+    #[test]
+    fn defers_java_and_steamcmd_checks_until_their_commands_are_used() {
+        let words = |args: &[&str]| args.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>();
+
+        assert!(requires_java(&words(&[
+            "mc", "server", "create", "vanilla", "1.21.1", "test"
+        ])));
+        assert!(requires_java(&words(&[
+            "minecraft",
+            "create",
+            "vanilla",
+            "1.21.1",
+            "test"
+        ])));
+        assert!(!requires_java(&words(&["mc", "api", "list"])));
+        assert!(!requires_java(&words(&["steam", "server", "create"])));
+        assert!(!requires_java(&words(&["mc", "server", "create"])));
+
+        assert!(requires_steamcmd(&words(&[
+            "steam", "server", "create", "1007", "test"
+        ])));
+        assert!(requires_steamcmd(&words(&[
+            "steam",
+            "workshop",
+            "collection",
+            "game",
+            "server",
+            "collection-id"
+        ])));
+        assert!(requires_steamcmd(&words(&[
+            "terraria", "server", "create", "vanilla", "test"
+        ])));
+        assert!(requires_steamcmd(&words(&[
+            "terraria", "mod", "add", "test", "123", "mod"
+        ])));
+        assert!(!requires_steamcmd(&words(&["steam", "server", "delete"])));
+        assert!(!requires_steamcmd(&words(&["steam", "mod", "list"])));
+        assert!(!requires_steamcmd(&words(&["terraria", "mod", "add-file"])));
+        assert!(!requires_steamcmd(&words(&[
+            "terraria", "server", "create"
+        ])));
     }
 }

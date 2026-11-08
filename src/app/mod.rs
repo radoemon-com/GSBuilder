@@ -13,6 +13,5 @@ pub fn run() -> AppResult<()> {
     if update::check_and_update(&config, &language)? {
         return Ok(());
     }
-    bootstrap::ensure_runtime_dependencies(&mut config, &language)?;
-    cli::run(&config, &language)
+    cli::run(&mut config, &language)
 }

@@ -13,14 +13,17 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 const STEAMCMD_DOWNLOAD_URL: &str =
     "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz";
 
-pub fn ensure_runtime_dependencies(config: &mut Config, language: &Language) -> AppResult<()> {
+pub fn ensure_java(config: &Config, language: &Language) -> AppResult<()> {
     if !java_is_available(config) {
         println!("{}", language.text("setup.java.missing")?);
         if confirm(language.text("setup.install.confirm")?)? {
             install_java(config, language)?;
         }
     }
+    Ok(())
+}
 
+pub fn ensure_steamcmd(config: &mut Config, language: &Language) -> AppResult<()> {
     if !steamcmd_is_available(config) {
         println!("{}", language.text("setup.steamcmd.missing")?);
         if confirm(language.text("setup.install.confirm")?)? {
