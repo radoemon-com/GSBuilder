@@ -47,6 +47,7 @@ gsbuilder
 ## 🛠️ コマンドリファレンス
 
 起動後に `help` を入力すると簡易コマンド一覧が表示されます。
+対話入力では左右の矢印キーで入力位置を移動して編集でき、上矢印キーで以前のコマンドを呼び出せます。
 各コマンドに `--verbose` または `-v` フラグを付けると、説明付きの詳細ヘルプが表示されます（フラグはコマンド名の前後どちらにも配置可能です）。
 パスやゲーム名、サーバー名に空白が含まれる場合は、必ず `""` (ダブルクォーテーション) で囲んでください。
 
@@ -211,7 +212,7 @@ login_mode = "anonymous"  # "anonymous" または "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.5.4"
+user_agent = "GSBuilder/1.5.5"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"
@@ -460,7 +461,7 @@ login_mode = "anonymous"            # "anonymous" or "account"
 
 [network]
 timeout_seconds = 120
-user_agent = "GSBuilder/1.5.4"
+user_agent = "GSBuilder/1.5.5"
 
 [updates]
 github_repository = "radoemon-com/GSBuilder"

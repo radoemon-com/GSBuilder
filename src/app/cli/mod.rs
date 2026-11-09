@@ -2,7 +2,9 @@ use crate::app::bootstrap;
 use crate::core::config::Config;
 use crate::core::error::{AppResult, input_error};
 use crate::core::language::Language;
-use std::io::{self, Write};
+use rustyline::DefaultEditor;
+use rustyline::error::ReadlineError;
+use std::io::{self, IsTerminal, Write};
 
 mod commands;
 
@@ -25,19 +27,41 @@ fn confirm_server_deletion(language: &Language, server_name: &str) -> AppResult<
 pub fn run(config: &mut Config, language: &Language) -> AppResult<()> {
     let mut java_checked = false;
     let mut steamcmd_checked = false;
+    let mut editor = if io::stdin().is_terminal() {
+        Some(DefaultEditor::new()?)
+    } else {
+        None
+    };
     loop {
-        print!("{}", language.text("cli.prompt")?);
-        io::stdout().flush()?;
-        let mut line = String::new();
-        match io::stdin().read_line(&mut line) {
-            Ok(0) => break,
-            Ok(_) => {}
-            Err(error) if error.kind() == io::ErrorKind::Interrupted => {
-                println!();
-                continue;
+        let line = if let Some(editor) = &mut editor {
+            match editor.readline(language.text("cli.prompt")?) {
+                Ok(line) => {
+                    if !line.trim().is_empty() {
+                        editor.add_history_entry(&line)?;
+                    }
+                    line
+                }
+                Err(ReadlineError::Interrupted) => {
+                    println!();
+                    continue;
+                }
+                Err(ReadlineError::Eof) => break,
+                Err(error) => return Err(Box::new(error)),
             }
-            Err(error) => return Err(Box::new(error)),
-        }
+        } else {
+            print!("{}", language.text("cli.prompt")?);
+            io::stdout().flush()?;
+            let mut line = String::new();
+            match io::stdin().read_line(&mut line) {
+                Ok(0) => break,
+                Ok(_) => line,
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => {
+                    println!();
+                    continue;
+                }
+                Err(error) => return Err(Box::new(error)),
+            }
+        };
         let words = match tokenize(&line) {
             Ok(words) => words,
             Err(_) => {

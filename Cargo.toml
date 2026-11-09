@@ -1,6 +1,6 @@
 [package]
 name = "GSBuilder"
-version = "1.5.4"
+version = "1.5.5"
 edition = "2024"
 
 [dependencies]
@@ -14,6 +14,7 @@ tar = "0.4"
 toml_edit = "0.22"
 toml = "0.8"
 zip = { version = "2.4", default-features = false, features = ["deflate"] }
+rustyline = "19.0.0"
 
 [profile.release]
 opt-level = "z"
